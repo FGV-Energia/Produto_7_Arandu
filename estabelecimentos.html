@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARANDU | Análise de Estabelecimentos</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="logo_fgv.jpeg" alt="FGV Energia - Piscicultura" class="logo-img">
+            </div>
+            <nav class="nav">
+                <a href="index.html" class="nav-link">Piscicultura</a>
+                <a href="potencial_bruto.html" class="nav-link">Potencial Bruto</a>
+                <a href="pesca_extrativa.html" class="nav-link">Pesca Extrativa</a>
+                <a href="estabelecimentos.html" class="nav-link active">Estabelecimentos</a>
+            </nav>
+            <button class="menu-toggle" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation -->
+    <nav class="mobile-nav">
+        <a href="index.html" class="nav-link">Piscicultura</a>
+        <a href="potencial_bruto.html" class="nav-link">Potencial Bruto</a>
+        <a href="pesca_extrativa.html" class="nav-link">Pesca Extrativa</a>
+        <a href="estabelecimentos.html" class="nav-link active">Estabelecimentos</a>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1>Análise de Estabelecimentos</h1>
+                <p class="hero-subtitle">Dados da Receita Federal - CNPJs relacionados à Aquicultura e Pesca</p>
+            </div>
+        </section>
+
+        <!-- KPI Cards -->
+        <section class="kpi-section" id="overview">
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 21h18"/>
+                            <path d="M5 21V7l8-4v18"/>
+                            <path d="M19 21V11l-6-4"/>
+                            <path d="M9 9v.01"/>
+                            <path d="M9 12v.01"/>
+                            <path d="M9 15v.01"/>
+                            <path d="M9 18v.01"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalEstabelecimentos">--</span>
+                        <span class="kpi-label">Total de Estabelecimentos</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 21h18"/>
+                            <path d="M9 8h1"/>
+                            <path d="M9 12h1"/>
+                            <path d="M9 16h1"/>
+                            <path d="M14 8h1"/>
+                            <path d="M14 12h1"/>
+                            <path d="M14 16h1"/>
+                            <rect x="5" y="3" width="14" height="18" rx="2"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalEstados">--</span>
+                        <span class="kpi-label">Estados com Estabelecimentos</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalMunicipiosEstab">--</span>
+                        <span class="kpi-label">Municípios com Estabelecimentos</span>
+                    </div>
+                </div>
+                <div class="kpi-card highlight">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalCNAEs">--</span>
+                        <span class="kpi-label">CNAEs Distintos</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filtros -->
+        <section class="filters-section">
+            <div class="filters-container">
+                <div class="filter-group">
+                    <label for="filterUF">Estado (UF)</label>
+                    <select id="filterUF" class="filter-select">
+                        <option value="">Todos os Estados</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterCNAE">CNAE Principal</label>
+                    <select id="filterCNAE" class="filter-select">
+                        <option value="">Todos os CNAEs</option>
+                    </select>
+                </div>
+                <button id="btnAplicarFiltros" class="btn-primary">Aplicar Filtros</button>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section" id="analises">
+            <div class="section-header">
+                <h2>Análise por Município e CNAE</h2>
+                <p>Distribuição dos estabelecimentos por localização e atividade econômica</p>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <h3>Top 20 Municípios com Mais Estabelecimentos</h3>
+                    </div>
+                    <div class="chart-container chart-container-tall">
+                        <canvas id="chartMunicipios"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <h3>Estabelecimentos por CNAE</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartCNAE"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Análise Temporal -->
+        <section class="charts-section" id="temporal">
+            <div class="section-header">
+                <h2>Análise Temporal</h2>
+                <p>Evolução dos estabelecimentos ao longo do tempo</p>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <h3>Abertura de Estabelecimentos por Ano</h3>
+                        <div class="chart-filter">
+                            <select id="filterCNAETemporal" class="filter-select-inline">
+                                <option value="">Todos os CNAEs</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartTemporal"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabela de Dados -->
+        <section class="table-section" id="tabela">
+            <div class="section-header">
+                <h2>Listagem de Estabelecimentos</h2>
+                <p>Dados detalhados dos estabelecimentos cadastrados</p>
+            </div>
+            <div class="table-controls">
+                <div class="search-box">
+                    <input type="text" id="searchEstabelecimento" placeholder="Buscar por nome fantasia, município ou CNAE...">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                </div>
+                <div class="table-info">
+                    <span id="tableInfo">Mostrando 0 de 0 registros</span>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table" id="tabelaEstabelecimentos">
+                    <thead>
+                        <tr>
+                            <th data-sort="cnpj">CNPJ</th>
+                            <th data-sort="nome">Nome Fantasia</th>
+                            <th data-sort="cnae">CNAE Principal</th>
+                            <th data-sort="municipio">Município</th>
+                            <th data-sort="uf">UF</th>
+                            <th data-sort="dataInicio">Data Início</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaBody">
+                        <!-- Dados serão inseridos via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination">
+                <!-- Paginação será inserida via JavaScript -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-info">
+                <div class="footer-logo">
+                    <span class="logo-title">ARANDU</span>
+                </div>
+                <p>Dashboard de análise de estabelecimentos relacionados à aquicultura.</p>
+                <p class="footer-source">Fonte: Receita Federal do Brasil - CNPJ</p>
+            </div>
+            <div class="footer-links">
+                <h4>Links Úteis</h4>
+                <a href="https://www.gov.br/receitafederal" target="_blank">Receita Federal</a>
+                <a href="index.html">Piscicultura</a>
+            </div>
+            <div class="footer-contact">
+                <h4>Contato</h4>
+                <p>Desenvolvido para análise de dados aquícolas</p>
+            </div>
+        </div>
+        <div class="footer-partners">
+            <img src="Logos_investidores.jpeg" alt="" class="partners-banner">
+        </div>
+        <div class="footer-bottom">
+            <p>© 2024 ARANDU - Inteligência em Dados. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+    </div>
+
+    <script src="estabelecimentos.js"></script>
+</body>
+</html>

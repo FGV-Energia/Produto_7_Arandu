@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARANDU | Potencial Bruto de Biometano</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="logo_fgv.jpeg" alt="FGV Energia - Potencial Bruto" class="logo-img">
+            </div>
+            <nav class="nav">
+                <a href="#overview" class="nav-link active">Visão Geral</a>
+                <a href="#especies" class="nav-link">Espécies</a>
+                <a href="#regioes" class="nav-link">Regiões</a>
+                <a href="#mapa" class="nav-link">Mapa</a>
+                <a href="index.html" class="nav-link nav-link-page">Piscicultura</a>
+                <a href="pesca_extrativa.html" class="nav-link nav-link-page">Pesca Extrativa</a>
+                <a href="estabelecimentos.html" class="nav-link nav-link-page">Estabelecimentos</a>
+            </nav>
+            <button class="menu-toggle" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation -->
+    <nav class="mobile-nav">
+        <a href="#overview" class="nav-link active">Visão Geral</a>
+        <a href="#especies" class="nav-link">Espécies</a>
+        <a href="#regioes" class="nav-link">Regiões</a>
+        <a href="#mapa" class="nav-link">Mapa</a>
+        <a href="index.html" class="nav-link nav-link-page">Piscicultura</a>
+        <a href="pesca_extrativa.html" class="nav-link nav-link-page">Pesca Extrativa</a>
+        <a href="estabelecimentos.html" class="nav-link nav-link-page">Estabelecimentos</a>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Hero Section -->
+        <section class="hero hero-potencial">
+            <div class="hero-content">
+                <h1>Potencial Bruto de Biometano</h1>
+                <p class="hero-subtitle">Estimativa de produção de Biometano a partir de resíduos da piscicultura brasileira</p>
+                <div class="hero-info">
+                    <div class="info-box">
+                        <span class="info-value">48,8%</span>
+                        <span class="info-label">Resíduos por kg de peixe</span>
+                    </div>
+                    <div class="info-box">
+                        <span class="info-value">0,1224</span>
+                        <span class="info-label">Nm³ de Biometano por kg de resíduo</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Cards -->
+        <section class="kpi-section" id="overview">
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5l6.74-6.76z"/>
+                            <line x1="16" y1="8" x2="2" y2="22"/>
+                            <line x1="17.5" y1="15" x2="9" y2="15"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalProducao">--</span>
+                        <span class="kpi-label">Produção Piscicultura (ton)</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalResiduos">--</span>
+                        <span class="kpi-label">Resíduos Totais (ton)</span>
+                    </div>
+                </div>
+                <div class="kpi-card highlight">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2c-5.33 4-8 7.33-8 10a8 8 0 0016 0c0-2.67-2.67-6-8-10z"/>
+                            <path d="M12 12v4"/>
+                            <path d="M12 22v-2"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalBiogas">--</span>
+                        <span class="kpi-label">Potencial Biometano (Nm³)</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                            <polyline points="17 6 23 6 23 12"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="especiePrincipal">--</span>
+                        <span class="kpi-label">Maior Potencial (Espécie)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section" id="especies">
+            <div class="section-header">
+                <h2>Potencial por Espécie</h2>
+                <p>Distribuição do potencial de Biometano entre as principais espécies cultivadas</p>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <h3>Potencial de Biometano por Espécie (Nm³)</h3>
+                        <div class="chart-actions">
+                            <button class="btn-chart active" data-chart="bar">Barras</button>
+                            <button class="btn-chart" data-chart="pie">Pizza</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartEspecies"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Top 5 Espécies - Biometano</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartTop5"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Comparativo: Produção vs Resíduos vs Biometano</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartComparativo"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Regional Section -->
+        <section class="regional-section" id="regioes">
+            <div class="section-header">
+                <h2>Análise Regional</h2>
+                <p>Potencial de Biometano distribuído por estados e regiões do Brasil</p>
+            </div>
+            <div class="filters-section">
+                <div class="filter-group-inline">
+                    <label for="filterRegionalEspecie">Filtrar por Espécie:</label>
+                    <select id="filterRegionalEspecie" class="filter-select-inline">
+                        <option value="">Todas as Espécies</option>
+                    </select>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <h3>Potencial de Biometano por Região (Nm³)</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartRegioes"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Top 10 Estados - Potencial</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartEstados"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Distribuição Regional (%)</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartDistribuicao"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Map Section -->
+        <section class="map-section" id="mapa">
+            <div class="section-header">
+                <h2>Mapa de Potencial</h2>
+                <p>Visualização geográfica do potencial de Biometano por município</p>
+            </div>
+            <div class="map-container-wrapper">
+                <div class="map-controls">
+                    <div class="map-filter-group">
+                        <label for="mapFilterEspecie">Espécie:</label>
+                        <select id="mapFilterEspecie">
+                            <option value="">Todas as Espécies</option>
+                        </select>
+                    </div>
+                    <div class="map-legend" id="mapLegend">
+                        <h4>Potencial Biometano (Nm³)</h4>
+                        <div class="legend-scale"></div>
+                    </div>
+                </div>
+                <div id="mapContainer" class="map-container"></div>
+                <div class="map-info-panel" id="mapInfoPanel">
+                    <div class="info-content">
+                        <h4 id="infoMunicipio">Passe o mouse sobre um município</h4>
+                        <div class="info-details" id="infoDetails"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Table Section -->
+        <section class="table-section" id="dados">
+            <div class="section-header">
+                <h2>Dados Detalhados</h2>
+                <p>Explore os dados completos do potencial de Biometano por município</p>
+            </div>
+            <div class="table-controls">
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Buscar município ou espécie...">
+                </div>
+                <div class="filter-group">
+                    <select id="filterEspecie">
+                        <option value="">Todas as Espécies</option>
+                    </select>
+                    <select id="filterRegiao">
+                        <option value="">Todas as Regiões</option>
+                        <option value="Norte">Norte</option>
+                        <option value="Nordeste">Nordeste</option>
+                        <option value="Sudeste">Sudeste</option>
+                        <option value="Sul">Sul</option>
+                        <option value="Centro-Oeste">Centro-Oeste</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="municipio">Município <span class="sort-icon">↕</span></th>
+                            <th data-sort="estado">Estado <span class="sort-icon">↕</span></th>
+                            <th data-sort="especie">Espécie <span class="sort-icon">↕</span></th>
+                            <th data-sort="producao">Produção (ton) <span class="sort-icon">↕</span></th>
+                            <th data-sort="residuos">Resíduos (ton) <span class="sort-icon">↕</span></th>
+                            <th data-sort="biogas">Biometano (Nm³) <span class="sort-icon">↕</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Data will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button class="btn-pagination" id="btnPrev" disabled>← Anterior</button>
+                <span class="page-info" id="pageInfo">Página 1 de 1</span>
+                <button class="btn-pagination" id="btnNext">Próximo →</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-info">
+                <div class="footer-logo">
+                    <span class="logo-title">ARANDU</span>
+                </div>
+                <p>Dashboard de análise do potencial de Biometano da piscicultura no Brasil.</p>
+                <p class="footer-source">Fonte: IBGE - Produção da Pecuária Municipal 2024 | FGV Energia</p>
+            </div>
+            <div class="footer-links">
+                <h4>Links Úteis</h4>
+                <a href="https://www.ibge.gov.br" target="_blank">IBGE</a>
+                <a href="#overview">Visão Geral</a>
+                <a href="#metodologia">Metodologia</a>
+            </div>
+            <div class="footer-contact">
+                <h4>Contato</h4>
+                <p>FGV Energia</p>
+            </div>
+        </div>
+        <div class="footer-partners">
+            <img src="Logos_investidores.jpeg" alt="" class="partners-banner">
+        </div>
+        <div class="footer-bottom">
+            <p>© 2024 ARANDU - Inteligência em Dados. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="potencial_bruto.js"></script>
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARANDU | Dashboard Pesca Extrativa Brasil</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <img src="logo_fgv.jpeg" alt="FGV Energia - Pesca Extrativa" class="logo-img">
+            </div>
+            <nav class="nav">
+                <a href="#overview" class="nav-link active">Visão Geral</a>
+                <a href="#especies" class="nav-link">Espécies</a>
+                <a href="#regioes" class="nav-link">Regiões</a>
+                <a href="#mapa" class="nav-link">Mapa</a>
+                <a href="index.html" class="nav-link nav-link-page">Piscicultura</a>
+                <a href="potencial_bruto.html" class="nav-link nav-link-page">Potencial Bruto</a>
+                <a href="estabelecimentos.html" class="nav-link nav-link-page">Estabelecimentos</a>
+            </nav>
+            <button class="menu-toggle" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Navigation -->
+    <nav class="mobile-nav">
+        <a href="#overview" class="nav-link active">Visão Geral</a>
+        <a href="#especies" class="nav-link">Espécies</a>
+        <a href="#regioes" class="nav-link">Regiões</a>
+        <a href="#mapa" class="nav-link">Mapa</a>
+        <a href="index.html" class="nav-link nav-link-page">Piscicultura</a>
+        <a href="potencial_bruto.html" class="nav-link nav-link-page">Potencial Bruto</a>
+        <a href="estabelecimentos.html" class="nav-link nav-link-page">Estabelecimentos</a>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1>Pesca Extrativa no Brasil</h1>
+                <p class="hero-subtitle">DISCLAIMER - Dados de Pesca Extrativa no Brasil são realizados através da Plataforma de registro de Dados do Ministério da Pesca e Agricultura. Esta plataforma ainda está em desenvolvimento, por isso os dados podem estar incompletos ou sujeitos a alterações.</p>
+            </div>
+        </section>
+
+        <!-- KPI Cards -->
+        <section class="kpi-section" id="overview">
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5l6.74-6.76z"/>
+                            <line x1="16" y1="8" x2="2" y2="22"/>
+                            <line x1="17.5" y1="15" x2="9" y2="15"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalProducao">--</span>
+                        <span class="kpi-label">Produção Total (ton)</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalEmbarcacoes">--</span>
+                        <span class="kpi-label">Embarcações</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="totalEspecies">--</span>
+                        <span class="kpi-label">Espécies Capturadas</span>
+                    </div>
+                </div>
+                <div class="kpi-card highlight">
+                    <div class="kpi-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                            <polyline points="17 6 23 6 23 12"/>
+                        </svg>
+                    </div>
+                    <div class="kpi-content">
+                        <span class="kpi-value" id="especiePrincipal">--</span>
+                        <span class="kpi-label">Espécie Líder</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section" id="especies">
+            <div class="section-header">
+                <h2>Análise por Espécie</h2>
+                <p>Distribuição da produção entre as principais espécies capturadas</p>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <h3>Produção por Espécie (Toneladas)</h3>
+                        <div class="chart-actions">
+                            <button class="btn-chart active" data-chart="bar">Barras</button>
+                            <button class="btn-chart" data-chart="pie">Pizza</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartEspecies"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Top 10 Espécies</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartTop10"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Produção por Arte de Pesca</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartArtePesca"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Regional Section -->
+        <section class="regional-section" id="regioes">
+            <div class="section-header">
+                <h2>Análise Regional</h2>
+                <p>Produção distribuída por estados do Brasil</p>
+            </div>
+            <div class="filters-section">
+                <div class="filter-group-inline">
+                    <label for="filterRegionalEspecie">Filtrar por Espécie:</label>
+                    <select id="filterRegionalEspecie" class="filter-select-inline">
+                        <option value="">Todas as Espécies</option>
+                    </select>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <h3>Produção por Estado</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartEstados"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Produção por Ano</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartAnual"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Distribuição por Região (%)</h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chartDistribuicao"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Map Section -->
+        <section class="map-section" id="mapa">
+            <div class="section-header">
+                <h2>Mapa de Produção</h2>
+                <p>Visualização geográfica da produção de pesca extrativa por estado</p>
+            </div>
+            <div class="map-container-wrapper">
+                <div class="map-controls">
+                    <div class="map-filter-group">
+                        <label for="mapFilterEspecie">Espécie:</label>
+                        <select id="mapFilterEspecie">
+                            <option value="">Todas as Espécies</option>
+                        </select>
+                    </div>
+                    <div class="map-filter-group">
+                        <label for="mapFilterAno">Ano:</label>
+                        <select id="mapFilterAno">
+                            <option value="">Todos os Anos</option>
+                        </select>
+                    </div>
+                    <div class="map-legend" id="mapLegend">
+                        <h4>Produção (ton)</h4>
+                        <div class="legend-scale"></div>
+                    </div>
+                </div>
+                <div id="mapContainer" class="map-container"></div>
+                <div class="map-info-panel" id="mapInfoPanel">
+                    <div class="info-content">
+                        <h4 id="infoEstado">Passe o mouse sobre um estado</h4>
+                        <div class="info-details" id="infoDetails"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Table Section -->
+        <section class="table-section" id="dados">
+            <div class="section-header">
+                <h2>Dados Detalhados</h2>
+                <p>Explore os dados completos de produção por embarcação</p>
+            </div>
+            <div class="table-controls">
+                <div class="search-box">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Buscar embarcação ou espécie...">
+                </div>
+                <div class="filter-group">
+                    <select id="filterEspecie">
+                        <option value="">Todas as Espécies</option>
+                    </select>
+                    <select id="filterEstado">
+                        <option value="">Todos os Estados</option>
+                    </select>
+                    <select id="filterAno">
+                        <option value="">Todos os Anos</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="embarcacao">Embarcação <span class="sort-icon">↕</span></th>
+                            <th data-sort="especie">Espécie <span class="sort-icon">↕</span></th>
+                            <th data-sort="estado">Estado <span class="sort-icon">↕</span></th>
+                            <th data-sort="artePesca">Arte de Pesca <span class="sort-icon">↕</span></th>
+                            <th data-sort="producao">Produção (ton) <span class="sort-icon">↕</span></th>
+                            <th data-sort="ano">Ano <span class="sort-icon">↕</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Data will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button class="btn-pagination" id="btnPrev" disabled>← Anterior</button>
+                <span class="page-info" id="pageInfo">Página 1 de 1</span>
+                <button class="btn-pagination" id="btnNext">Próximo →</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-info">
+                <div class="footer-logo">
+                    <span class="logo-title">ARANDU</span>
+                </div>
+                <p>Dashboard de análise da produção de pesca extrativa no Brasil.</p>
+                <p class="footer-source">Fonte: Ministério da Pesca e Agricultura</p>
+            </div>
+            <div class="footer-links">
+                <h4>Links Úteis</h4>
+                <a href="index.html">Piscicultura</a>
+                <a href="#overview">Visão Geral</a>
+                <a href="#especies">Espécies</a>
+            </div>
+            <div class="footer-contact">
+                <h4>Contato</h4>
+                <p>FGV Energia</p>
+            </div>
+        </div>
+        <div class="footer-partners">
+            <img src="Logos_investidores.jpeg" alt="" class="partners-banner">
+        </div>
+        <div class="footer-bottom">
+            <p>© 2024 ARANDU - Inteligência em Dados. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+    </div>
+
+    <script src="pesca_extrativa.js"></script>
+</body>
+</html>
