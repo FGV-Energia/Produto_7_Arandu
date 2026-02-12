@@ -99,13 +99,3 @@ Biometano (Nm³) = Produção (ton) × 0,488 × 0,1224 × 1000
 - Receita Federal (dados de estabelecimentos filtrados por CNAE)
 - Malhas geográficas de municípios e UFs (GeoJSON)
 
-## Publicação no GitHub Pages (opcional)
-
-1. Suba este repositório para o GitHub.
-2. Em **Settings > Pages**, selecione a branch principal (`main`) e pasta raiz (`/root`).
-3. Salve e aguarde a URL pública ser gerada.
-
-## Observações
-
-- Projeto orientado a visualização e exploração de dados.
-- Alguns módulos podem refletir limitações/atualizações da base original de origem.
