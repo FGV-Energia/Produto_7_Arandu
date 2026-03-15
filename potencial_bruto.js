@@ -55,8 +55,17 @@ const UF_NAMES = {
     'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
 };
 
+const DASHBOARD_SCOPE = {
+    BRAZIL: 'brazil',
+    LEGAL_AMAZON: 'legal-amazon'
+};
+
+const LEGAL_AMAZON_FILTER_VALUE = 'amazonia-legal';
+const LEGAL_AMAZON_UFS = ['AC', 'AP', 'AM', 'MA', 'MT', 'PA', 'RO', 'RR', 'TO'];
+
 // Global State
 let dashboardData = {
+    allRaw: [],
     raw: [],
     byEspecie: {},
     byMunicipio: {},
@@ -87,11 +96,16 @@ let mapState = {
     highlightedFeature: null
 };
 
+let scopeState = {
+    current: DASHBOARD_SCOPE.BRAZIL
+};
+
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await loadData();
         processData();
+        updateScopeUI();
         updateKPIs();
         initCharts();
         initMap();
@@ -111,9 +125,20 @@ async function loadData() {
         throw new Error('Data not loaded');
     }
     
-    dashboardData.raw = window.PISCICULTURA_DATA;
+    dashboardData.allRaw = window.PISCICULTURA_DATA;
+    dashboardData.raw = getScopedRawData();
     dashboardData.municipiosInfo = window.MUNICIPIOS_DATA || {};
     dashboardData.geojsonData = window.GEOJSON_DATA || null;
+}
+
+function getScopedRawData() {
+    if (scopeState.current === DASHBOARD_SCOPE.LEGAL_AMAZON) {
+        return dashboardData.allRaw.filter(item => {
+            const ufCode = item.codMun.toString().substring(0, 2);
+            return isLegalAmazonUF(getUFFromCode(ufCode));
+        });
+    }
+    return [...dashboardData.allRaw];
 }
 
 // Process Data - Calculate biogas potential
@@ -213,6 +238,159 @@ function getUFFromCode(code) {
         '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
     };
     return codeToUF[code] || 'XX';
+}
+
+function isLegalAmazonUF(uf) {
+    return LEGAL_AMAZON_UFS.includes(uf);
+}
+
+function isCurrentScopeLegalAmazon() {
+    return scopeState.current === DASHBOARD_SCOPE.LEGAL_AMAZON;
+}
+
+function getCurrentScopeTitle() {
+    return isCurrentScopeLegalAmazon()
+        ? 'Potencial Bruto de Biometano na Amazônia Legal'
+        : 'Potencial Bruto de Biometano';
+}
+
+function updateScopeUI() {
+    const heroTitle = document.getElementById('heroTitle');
+    const scopeToggleButton = document.getElementById('scopeToggleButton');
+    const scopeToggleLabel = document.getElementById('scopeToggleLabel');
+
+    if (heroTitle) {
+        heroTitle.textContent = getCurrentScopeTitle();
+    }
+
+    if (scopeToggleButton) {
+        const isActive = isCurrentScopeLegalAmazon();
+        scopeToggleButton.classList.toggle('active', isActive);
+        scopeToggleButton.setAttribute('aria-pressed', String(isActive));
+    }
+
+    if (scopeToggleLabel) {
+        scopeToggleLabel.textContent = isCurrentScopeLegalAmazon() ? 'Brasil' : 'Amazônia Legal';
+    }
+}
+
+function resetScopedControls() {
+    tableState.currentPage = 1;
+    tableState.filters.search = '';
+    tableState.filters.especie = '';
+    tableState.filters.regiao = '';
+    mapState.selectedEspecie = '';
+
+    const controls = ['searchInput', 'filterEspecie', 'filterRegiao', 'filterRegionalEspecie', 'mapFilterEspecie'];
+    controls.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.value = '';
+    });
+
+    hideInfoPanel();
+}
+
+function destroyCharts() {
+    Object.values(dashboardData.charts).forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') {
+            chart.destroy();
+        }
+    });
+    dashboardData.charts = {};
+}
+
+function refreshCharts() {
+    const activeChartType = document.querySelector('.btn-chart.active')?.dataset.chart || 'bar';
+    destroyCharts();
+    initCharts();
+    if (activeChartType !== 'bar') {
+        toggleChartType(activeChartType);
+    }
+}
+
+function refreshFilterOptions() {
+    populateEspeciesFilter();
+    populateRegionalFilter();
+}
+
+function getFeatureUF(feature) {
+    const props = feature.properties || {};
+    if (props.SIGLA_UF) return props.SIGLA_UF;
+    if (props.CD_MUN) return getUFFromCode(props.CD_MUN.toString().substring(0, 2));
+    return 'XX';
+}
+
+function getScopedMunicipiosGeoJSONData() {
+    if (!dashboardData.geojsonData?.features) return dashboardData.geojsonData;
+
+    return {
+        ...dashboardData.geojsonData,
+        features: dashboardData.geojsonData.features.filter(feature => {
+            if (!isCurrentScopeLegalAmazon()) return true;
+            return isLegalAmazonUF(getFeatureUF(feature));
+        })
+    };
+}
+
+function fitMapToLayer(layer) {
+    if (!dashboardData.map || !layer || typeof layer.getBounds !== 'function') return;
+
+    const bounds = layer.getBounds();
+    if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+        dashboardData.map.fitBounds(bounds);
+    }
+}
+
+function renderMapLayer(shouldFit = true) {
+    if (!dashboardData.map || !dashboardData.geojsonData) return;
+
+    const biogasByMunicipio = calculateMapData(mapState.selectedEspecie);
+
+    if (dashboardData.geojsonLayer) {
+        dashboardData.map.removeLayer(dashboardData.geojsonLayer);
+    }
+
+    dashboardData.geojsonLayer = L.geoJSON(getScopedMunicipiosGeoJSONData(), {
+        style: (feature) => getFeatureStyle(feature, biogasByMunicipio),
+        onEachFeature: (feature, layer) => {
+            layer.on({
+                mouseover: (e) => highlightFeature(e, biogasByMunicipio),
+                mousemove: (e) => positionInfoPanel(e.originalEvent),
+                mouseout: resetHighlight,
+                click: (e) => zoomToFeature(e)
+            });
+        }
+    }).addTo(dashboardData.map);
+
+    if (shouldFit) {
+        fitMapToLayer(dashboardData.geojsonLayer);
+    }
+}
+
+function refreshMapForCurrentScope() {
+    renderMapLayer(true);
+    createMapLegend();
+}
+
+function applyDashboardScope(scope) {
+    scopeState.current = scope;
+    dashboardData.raw = getScopedRawData();
+
+    resetScopedControls();
+    processData();
+    updateScopeUI();
+    updateKPIs();
+    refreshFilterOptions();
+    refreshCharts();
+    refreshMapForCurrentScope();
+    updateTable();
+}
+
+function toggleDashboardScope() {
+    const nextScope = isCurrentScopeLegalAmazon()
+        ? DASHBOARD_SCOPE.BRAZIL
+        : DASHBOARD_SCOPE.LEGAL_AMAZON;
+    applyDashboardScope(nextScope);
 }
 
 function prepareTableData() {
@@ -609,14 +787,16 @@ function createDistribuicaoChart() {
 
 // Initialize Table
 function initTable() {
-    populateEspeciesFilter();
-    populateRegionalFilter();
+    refreshFilterOptions();
     updateTable();
 }
 
 function populateEspeciesFilter() {
     const select = document.getElementById('filterEspecie');
     const mapSelect = document.getElementById('mapFilterEspecie');
+
+    select.innerHTML = '<option value="">Todas as Espécies</option>';
+    mapSelect.innerHTML = '<option value="">Todas as Espécies</option>';
     
     const especies = Object.keys(dashboardData.byEspecie)
         .filter(e => dashboardData.byEspecie[e].biogas > 0)
@@ -636,6 +816,8 @@ function populateEspeciesFilter() {
 function populateRegionalFilter() {
     const select = document.getElementById('filterRegionalEspecie');
     if (!select) return;
+
+    select.innerHTML = '<option value="">Todas as Espécies</option>';
     
     const especies = Object.keys(dashboardData.byEspecie)
         .filter(e => dashboardData.byEspecie[e].biogas > 0)
@@ -646,11 +828,6 @@ function populateRegionalFilter() {
         option.value = esp;
         option.textContent = esp;
         select.appendChild(option);
-    });
-    
-    // Add event listener
-    select.addEventListener('change', (e) => {
-        updateRegionalCharts(e.target.value);
     });
 }
 
@@ -718,7 +895,12 @@ function updateTable() {
     }
     
     if (tableState.filters.regiao) {
-        data = data.filter(item => item.regiao === tableState.filters.regiao);
+        data = data.filter(item => {
+            if (tableState.filters.regiao === LEGAL_AMAZON_FILTER_VALUE) {
+                return isLegalAmazonUF(item.estado);
+            }
+            return item.regiao === tableState.filters.regiao;
+        });
     }
     
     // Sort
@@ -827,6 +1009,14 @@ function initEventListeners() {
         tableState.currentPage = 1;
         updateTable();
     });
+
+    document.getElementById('filterRegionalEspecie').addEventListener('change', (e) => {
+        updateRegionalCharts(e.target.value);
+    });
+
+    document.getElementById('scopeToggleButton').addEventListener('click', () => {
+        toggleDashboardScope();
+    });
     
     // Map filter
     document.getElementById('mapFilterEspecie').addEventListener('change', (e) => {
@@ -930,23 +1120,8 @@ function initMap() {
         subdomains: 'abcd',
         maxZoom: 20
     }).addTo(dashboardData.map);
-    
-    const biogasByMunicipio = calculateMapData('');
-    
-    dashboardData.geojsonLayer = L.geoJSON(dashboardData.geojsonData, {
-        style: (feature) => getFeatureStyle(feature, biogasByMunicipio),
-        onEachFeature: (feature, layer) => {
-            layer.on({
-                mouseover: (e) => highlightFeature(e, biogasByMunicipio),
-                mousemove: (e) => positionInfoPanel(e.originalEvent),
-                mouseout: resetHighlight,
-                click: (e) => zoomToFeature(e)
-            });
-        }
-    }).addTo(dashboardData.map);
-    
-    dashboardData.map.fitBounds(dashboardData.geojsonLayer.getBounds());
-    createMapLegend();
+
+    refreshMapForCurrentScope();
 }
 
 function calculateMapData(especie) {
@@ -1124,21 +1299,7 @@ function updateInfoPanel(codMun, props) {
 }
 
 function updateMapColors() {
-    const biogasByMunicipio = calculateMapData(mapState.selectedEspecie);
-    
-    if (dashboardData.geojsonLayer) {
-        dashboardData.geojsonLayer.eachLayer(layer => {
-            const codMun = layer.feature.properties.CD_MUN;
-            const biogas = biogasByMunicipio[codMun] || 0;
-            layer.setStyle({
-                fillColor: getColorForValue(biogas),
-                weight: 0.5,
-                opacity: 1,
-                color: '#666',
-                fillOpacity: 0.8
-            });
-        });
-    }
+    renderMapLayer(false);
 }
 
 function createMapLegend() {

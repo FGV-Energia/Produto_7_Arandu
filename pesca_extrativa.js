@@ -46,8 +46,18 @@ const UF_SIGLAS = {
     'São Paulo': 'SP', 'Sergipe': 'SE', 'Tocantins': 'TO'
 };
 
+const DASHBOARD_SCOPE = {
+    BRAZIL: 'brazil',
+    LEGAL_AMAZON: 'legal-amazon'
+};
+
+const LEGAL_AMAZON_FILTER_VALUE = 'amazonia-legal';
+const LEGAL_AMAZON_STATES = ['Acre', 'Amapá', 'Amazonas', 'Maranhão', 'Mato Grosso', 'Pará', 'Rondônia', 'Roraima', 'Tocantins'];
+const LEGAL_AMAZON_SIGLAS = ['AC', 'AP', 'AM', 'MA', 'MT', 'PA', 'RO', 'RR', 'TO'];
+
 // Global State
 let dashboardData = {
+    allRaw: [],
     raw: [],
     byEspecie: {},
     byEstado: {},
@@ -74,12 +84,17 @@ let tableState = {
     }
 };
 
+let scopeState = {
+    current: DASHBOARD_SCOPE.BRAZIL
+};
+
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         showLoading();
         await loadData();
         processData();
+        updateScopeUI();
         updateKPIs();
         initCharts();
         initMap();
@@ -149,8 +164,9 @@ function parseCSV(csvText) {
         }
     }
     
-    dashboardData.raw = records;
-    dashboardData.filteredData = [...records];
+    dashboardData.allRaw = records;
+    dashboardData.raw = getScopedRawData();
+    dashboardData.filteredData = [...dashboardData.raw];
 }
 
 function parseCSVLine(line) {
@@ -173,6 +189,127 @@ function parseCSVLine(line) {
     result.push(current.trim());
     
     return result;
+}
+
+function isLegalAmazonState(estado) {
+    return LEGAL_AMAZON_STATES.includes(estado);
+}
+
+function getScopedRawData() {
+    if (scopeState.current === DASHBOARD_SCOPE.LEGAL_AMAZON) {
+        return dashboardData.allRaw.filter(item => isLegalAmazonState(item.estado));
+    }
+    return [...dashboardData.allRaw];
+}
+
+function isCurrentScopeLegalAmazon() {
+    return scopeState.current === DASHBOARD_SCOPE.LEGAL_AMAZON;
+}
+
+function getCurrentScopeTitle() {
+    return isCurrentScopeLegalAmazon()
+        ? 'Pesca Extrativa na Amazônia Legal'
+        : 'Pesca Extrativa no Brasil';
+}
+
+function updateScopeUI() {
+    const heroTitle = document.getElementById('heroTitle');
+    const scopeToggleButton = document.getElementById('scopeToggleButton');
+    const scopeToggleLabel = document.getElementById('scopeToggleLabel');
+
+    if (heroTitle) {
+        heroTitle.textContent = getCurrentScopeTitle();
+    }
+
+    if (scopeToggleButton) {
+        const isActive = isCurrentScopeLegalAmazon();
+        scopeToggleButton.classList.toggle('active', isActive);
+        scopeToggleButton.setAttribute('aria-pressed', String(isActive));
+    }
+
+    if (scopeToggleLabel) {
+        scopeToggleLabel.textContent = isCurrentScopeLegalAmazon() ? 'Brasil' : 'Amazônia Legal';
+    }
+}
+
+function resetScopedControls() {
+    tableState.currentPage = 1;
+    tableState.filters.search = '';
+    tableState.filters.especie = '';
+    tableState.filters.estado = '';
+    tableState.filters.ano = '';
+
+    const controls = [
+        'searchInput',
+        'filterEspecie',
+        'filterEstado',
+        'filterAno',
+        'filterRegionalEspecie',
+        'mapFilterEspecie',
+        'mapFilterAno'
+    ];
+
+    controls.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.value = '';
+    });
+
+    const infoEstado = document.getElementById('infoEstado');
+    const infoDetails = document.getElementById('infoDetails');
+    if (infoEstado) infoEstado.textContent = 'Passe o mouse sobre um estado';
+    if (infoDetails) infoDetails.innerHTML = '';
+}
+
+function refreshCharts() {
+    const activeChartType = document.querySelector('.btn-chart.active')?.dataset.chart || 'bar';
+    initCharts();
+    if (activeChartType !== 'bar') {
+        updateChartType(activeChartType);
+    }
+}
+
+function getScopedGeojsonData() {
+    if (!dashboardData.geojsonData?.features) return dashboardData.geojsonData;
+
+    return {
+        ...dashboardData.geojsonData,
+        features: dashboardData.geojsonData.features.filter(feature => {
+            if (!isCurrentScopeLegalAmazon()) return true;
+            const sigla = feature.properties.SIGLA_UF || feature.properties.sigla;
+            return LEGAL_AMAZON_SIGLAS.includes(sigla);
+        })
+    };
+}
+
+function fitMapToLayer(layer) {
+    if (!dashboardData.map || !layer || typeof layer.getBounds !== 'function') return;
+
+    const bounds = layer.getBounds();
+    if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+        dashboardData.map.fitBounds(bounds);
+    }
+}
+
+function applyDashboardScope(scope) {
+    scopeState.current = scope;
+    dashboardData.raw = getScopedRawData();
+    dashboardData.filteredData = [...dashboardData.raw];
+
+    resetScopedControls();
+    processData();
+    populateRegionalFilter();
+    updateScopeUI();
+    updateKPIs();
+    refreshCharts();
+    updateMap({ fitBounds: true });
+    renderTable();
+}
+
+function toggleDashboardScope() {
+    const nextScope = isCurrentScopeLegalAmazon()
+        ? DASHBOARD_SCOPE.BRAZIL
+        : DASHBOARD_SCOPE.LEGAL_AMAZON;
+    applyDashboardScope(nextScope);
 }
 
 // Process Data
@@ -263,7 +400,10 @@ function populateFilters() {
     // Estados
     const estados = [...new Set(data.map(d => d.estado))].filter(Boolean).sort();
     const filterEstado = document.getElementById('filterEstado');
-    filterEstado.innerHTML = '<option value="">Todos os Estados</option>';
+    filterEstado.innerHTML = `
+        <option value="">Todos os Estados</option>
+        <option value="${LEGAL_AMAZON_FILTER_VALUE}">Amazônia Legal</option>
+    `;
     estados.forEach(estado => {
         const opt = document.createElement('option');
         opt.value = estado;
@@ -649,11 +789,13 @@ function initMap() {
         attribution: '© OpenStreetMap contributors'
     }).addTo(dashboardData.map);
     
-    updateMap();
+    updateMap({ fitBounds: true });
 }
 
-function updateMap() {
+function updateMap(options = {}) {
     if (!dashboardData.map || !dashboardData.geojsonData) return;
+
+    const { fitBounds = false } = options;
     
     const especieFilter = document.getElementById('mapFilterEspecie').value;
     const anoFilter = document.getElementById('mapFilterAno').value;
@@ -688,7 +830,7 @@ function updateMap() {
     }
     
     // Create choropleth
-    dashboardData.geojsonLayer = L.geoJSON(dashboardData.geojsonData, {
+    dashboardData.geojsonLayer = L.geoJSON(getScopedGeojsonData(), {
         style: feature => {
             const sigla = feature.properties.SIGLA_UF || feature.properties.sigla;
             const value = byEstado[sigla] || 0;
@@ -723,6 +865,10 @@ function updateMap() {
             layer.bindTooltip(`${nome}: ${formatNumber(value)} ton`);
         }
     }).addTo(dashboardData.map);
+
+    if (fitBounds) {
+        fitMapToLayer(dashboardData.geojsonLayer);
+    }
     
     // Update legend
     updateLegend(maxValue);
@@ -764,6 +910,8 @@ function initTable() {
 function populateRegionalFilter() {
     const select = document.getElementById('filterRegionalEspecie');
     if (!select) return;
+
+    select.innerHTML = '<option value="">Todas as Espécies</option>';
     
     const especies = Object.keys(dashboardData.byEspecie)
         .filter(e => dashboardData.byEspecie[e] > 0)
@@ -774,11 +922,6 @@ function populateRegionalFilter() {
         option.value = esp;
         option.textContent = esp;
         select.appendChild(option);
-    });
-    
-    // Add event listener
-    select.addEventListener('change', (e) => {
-        updateRegionalCharts(e.target.value);
     });
 }
 
@@ -840,7 +983,12 @@ function renderTable() {
         filtered = filtered.filter(item => item.especie === especie);
     }
     if (estado) {
-        filtered = filtered.filter(item => item.estado === estado);
+        filtered = filtered.filter(item => {
+            if (estado === LEGAL_AMAZON_FILTER_VALUE) {
+                return isLegalAmazonState(item.estado);
+            }
+            return item.estado === estado;
+        });
     }
     if (ano) {
         filtered = filtered.filter(item => item.ano === ano);
@@ -929,6 +1077,14 @@ function initEventListeners() {
         tableState.filters.ano = e.target.value;
         tableState.currentPage = 1;
         renderTable();
+    });
+
+    document.getElementById('filterRegionalEspecie').addEventListener('change', e => {
+        updateRegionalCharts(e.target.value);
+    });
+
+    document.getElementById('scopeToggleButton').addEventListener('click', () => {
+        toggleDashboardScope();
     });
     
     // Pagination

@@ -46,8 +46,17 @@ const UF_NAMES = {
     'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
 };
 
+const DASHBOARD_SCOPE = {
+    BRAZIL: 'brazil',
+    LEGAL_AMAZON: 'legal-amazon'
+};
+
+const LEGAL_AMAZON_FILTER_VALUE = 'amazonia-legal';
+const LEGAL_AMAZON_UFS = ['AC', 'AP', 'AM', 'MA', 'MT', 'PA', 'RO', 'RR', 'TO'];
+
 // Global State
 let dashboardData = {
+    allRaw: [],
     raw: [],
     byEspecie: {},
     byMunicipio: {},
@@ -83,11 +92,16 @@ let mapState = {
     currentView: 'municipios' // 'municipios', 'estados', 'bolhas', 'heatmap'
 };
 
+let scopeState = {
+    current: DASHBOARD_SCOPE.BRAZIL
+};
+
 // Initialize Dashboard
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         await loadData();
         processData();
+        updateScopeUI();
         updateKPIs();
         initCharts();
         initMap();
@@ -108,9 +122,20 @@ async function loadData() {
         throw new Error('Data not loaded');
     }
     
-    dashboardData.raw = window.PISCICULTURA_DATA;
+    dashboardData.allRaw = window.PISCICULTURA_DATA;
+    dashboardData.raw = getScopedRawData();
     dashboardData.municipiosInfo = window.MUNICIPIOS_DATA || {};
     dashboardData.geojsonData = window.GEOJSON_DATA || null;
+}
+
+function getScopedRawData() {
+    if (scopeState.current === DASHBOARD_SCOPE.LEGAL_AMAZON) {
+        return dashboardData.allRaw.filter(item => {
+            const ufCode = item.codMun.toString().substring(0, 2);
+            return isLegalAmazonUF(getUFFromCode(ufCode));
+        });
+    }
+    return [...dashboardData.allRaw];
 }
 
 // Process Data
@@ -174,6 +199,134 @@ function getUFFromCode(code) {
         '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
     };
     return codeToUF[code] || 'XX';
+}
+
+function isLegalAmazonUF(uf) {
+    return LEGAL_AMAZON_UFS.includes(uf);
+}
+
+function isCurrentScopeLegalAmazon() {
+    return scopeState.current === DASHBOARD_SCOPE.LEGAL_AMAZON;
+}
+
+function getCurrentScopeTitle() {
+    return isCurrentScopeLegalAmazon()
+        ? 'Produção de Piscicultura na Amazônia Legal'
+        : 'Produção de Piscicultura no Brasil';
+}
+
+function updateScopeUI() {
+    const heroTitle = document.getElementById('heroTitle');
+    const scopeToggleButton = document.getElementById('scopeToggleButton');
+    const scopeToggleLabel = document.getElementById('scopeToggleLabel');
+
+    if (heroTitle) {
+        heroTitle.textContent = getCurrentScopeTitle();
+    }
+
+    if (scopeToggleButton) {
+        const isActive = isCurrentScopeLegalAmazon();
+        scopeToggleButton.classList.toggle('active', isActive);
+        scopeToggleButton.setAttribute('aria-pressed', String(isActive));
+    }
+
+    if (scopeToggleLabel) {
+        scopeToggleLabel.textContent = isCurrentScopeLegalAmazon() ? 'Brasil' : 'Amazônia Legal';
+    }
+}
+
+function resetScopedControls() {
+    tableState.currentPage = 1;
+    tableState.filters.search = '';
+    tableState.filters.especie = '';
+    tableState.filters.regiao = '';
+    mapState.selectedEspecie = '';
+
+    const controls = ['searchInput', 'filterEspecie', 'filterRegiao', 'filterRegionalEspecie', 'mapFilterEspecie'];
+    controls.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) element.value = '';
+    });
+
+    hideInfoPanel();
+}
+
+function destroyCharts() {
+    Object.values(dashboardData.charts).forEach(chart => {
+        if (chart && typeof chart.destroy === 'function') {
+            chart.destroy();
+        }
+    });
+    dashboardData.charts = {};
+}
+
+function refreshCharts() {
+    const activeChartType = document.querySelector('.btn-chart.active')?.dataset.chart || 'bar';
+    destroyCharts();
+    initCharts();
+    if (activeChartType !== 'bar') {
+        toggleChartType(activeChartType);
+    }
+}
+
+function refreshFilterOptions() {
+    populateEspeciesFilter();
+    populateRegionalFilter();
+    populateMapFilter();
+}
+
+function getFeatureUF(feature) {
+    const props = feature.properties || {};
+    if (props.SIGLA_UF) return props.SIGLA_UF;
+    if (props.CD_MUN) return getUFFromCode(props.CD_MUN.toString().substring(0, 2));
+    return 'XX';
+}
+
+function getScopedMunicipiosGeoJSONData() {
+    if (!dashboardData.geojsonData?.features) return dashboardData.geojsonData;
+
+    return {
+        ...dashboardData.geojsonData,
+        features: dashboardData.geojsonData.features.filter(feature => {
+            if (!isCurrentScopeLegalAmazon()) return true;
+            return isLegalAmazonUF(getFeatureUF(feature));
+        })
+    };
+}
+
+function fitMapToLayer(layer) {
+    if (!dashboardData.map || !layer || typeof layer.getBounds !== 'function') return;
+
+    const bounds = layer.getBounds();
+    if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+        dashboardData.map.fitBounds(bounds);
+    }
+}
+
+function refreshMapForCurrentScope() {
+    if (!dashboardData.map) return;
+    switchMapView(mapState.currentView);
+}
+
+function applyDashboardScope(scope) {
+    scopeState.current = scope;
+    dashboardData.raw = getScopedRawData();
+
+    resetScopedControls();
+    processData();
+    updateScopeUI();
+    updateKPIs();
+    refreshFilterOptions();
+    refreshCharts();
+    refreshMapForCurrentScope();
+    updateTable();
+}
+
+function toggleDashboardScope() {
+    const nextScope = isCurrentScopeLegalAmazon()
+        ? DASHBOARD_SCOPE.BRAZIL
+        : DASHBOARD_SCOPE.LEGAL_AMAZON;
+    applyDashboardScope(nextScope);
 }
 
 function prepareTableData() {
@@ -554,13 +707,14 @@ function createDistribuicaoChart() {
 
 // Initialize Table
 function initTable() {
-    populateEspeciesFilter();
-    populateRegionalFilter();
+    refreshFilterOptions();
     updateTable();
 }
 
 function populateEspeciesFilter() {
     const select = document.getElementById('filterEspecie');
+    select.innerHTML = '<option value="">Todas as Espécies</option>';
+
     const especies = Object.keys(dashboardData.byEspecie)
         .filter(e => dashboardData.byEspecie[e] > 0)
         .sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -576,6 +730,8 @@ function populateEspeciesFilter() {
 function populateRegionalFilter() {
     const select = document.getElementById('filterRegionalEspecie');
     if (!select) return;
+
+    select.innerHTML = '<option value="">Todas as Espécies</option>';
     
     const especies = Object.keys(dashboardData.byEspecie)
         .filter(e => dashboardData.byEspecie[e] > 0)
@@ -586,11 +742,6 @@ function populateRegionalFilter() {
         option.value = esp;
         option.textContent = esp;
         select.appendChild(option);
-    });
-    
-    // Add event listener
-    select.addEventListener('change', (e) => {
-        updateRegionalCharts(e.target.value);
     });
 }
 
@@ -655,7 +806,12 @@ function updateTable() {
     }
     
     if (tableState.filters.regiao) {
-        data = data.filter(item => item.regiao === tableState.filters.regiao);
+        data = data.filter(item => {
+            if (tableState.filters.regiao === LEGAL_AMAZON_FILTER_VALUE) {
+                return isLegalAmazonUF(item.estado);
+            }
+            return item.regiao === tableState.filters.regiao;
+        });
     }
     
     // Sort
@@ -760,6 +916,14 @@ function initEventListeners() {
         tableState.currentPage = 1;
         updateTable();
     });
+
+    document.getElementById('filterRegionalEspecie').addEventListener('change', (e) => {
+        updateRegionalCharts(e.target.value);
+    });
+
+    document.getElementById('scopeToggleButton').addEventListener('click', () => {
+        toggleDashboardScope();
+    });
     
     // Table sorting
     document.querySelectorAll('.data-table th[data-sort]').forEach(th => {
@@ -861,30 +1025,9 @@ function initMap() {
         maxZoom: 20
     }).addTo(dashboardData.map);
     
-    // Calculate production by municipality
-    const producaoByMunicipio = calculateMapData('');
-    
-    // Add GeoJSON layer
-    dashboardData.geojsonLayer = L.geoJSON(dashboardData.geojsonData, {
-        style: (feature) => getFeatureStyle(feature, producaoByMunicipio),
-        onEachFeature: (feature, layer) => {
-            layer.on({
-                mouseover: (e) => highlightFeature(e, producaoByMunicipio),
-                mousemove: (e) => positionInfoPanel(e.originalEvent),
-                mouseout: resetHighlight,
-                click: (e) => zoomToFeature(e)
-            });
-        }
-    }).addTo(dashboardData.map);
-    
-    // Fit bounds to Brazil
-    dashboardData.map.fitBounds(dashboardData.geojsonLayer.getBounds());
-    
     // Populate map filter
     populateMapFilter();
-    
-    // Create legend
-    createMapLegend();
+    switchMapView(mapState.currentView);
     
     // Add map filter event
     document.getElementById('mapFilterEspecie').addEventListener('change', (e) => {
@@ -1075,6 +1218,8 @@ function updateInfoPanel(codMun, props) {
 
 function populateMapFilter() {
     const select = document.getElementById('mapFilterEspecie');
+    select.innerHTML = '<option value="">Todas as Espécies</option>';
+
     const especies = Object.keys(dashboardData.byEspecie)
         .filter(e => dashboardData.byEspecie[e] > 0)
         .sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -1174,7 +1319,7 @@ function clearMapLayers() {
 }
 
 function createMunicipiosLayer(producaoByMunicipio) {
-    dashboardData.geojsonLayer = L.geoJSON(dashboardData.geojsonData, {
+    dashboardData.geojsonLayer = L.geoJSON(getScopedMunicipiosGeoJSONData(), {
         style: (feature) => getFeatureStyle(feature, producaoByMunicipio),
         onEachFeature: (feature, layer) => {
             layer.on({
@@ -1185,6 +1330,8 @@ function createMunicipiosLayer(producaoByMunicipio) {
             });
         }
     }).addTo(dashboardData.map);
+
+    fitMapToLayer(dashboardData.geojsonLayer);
 }
 
 function createEstadosLayer() {
@@ -1209,22 +1356,24 @@ function createEstadosLayer() {
         // Use the official UF GeoJSON
         estadosData = {
             type: 'FeatureCollection',
-            features: window.GEOJSON_UF_DATA.features.map(feature => ({
-                type: 'Feature',
-                properties: {
-                    SIGLA_UF: feature.properties.SIGLA_UF,
-                    NM_UF: feature.properties.NM_UF,
-                    NM_REGIA: feature.properties.NM_REGIA,
-                    AREA_KM2: feature.properties.AREA_KM2,
-                    producao: producaoByEstado[feature.properties.SIGLA_UF] || 0
-                },
-                geometry: feature.geometry
-            }))
+            features: window.GEOJSON_UF_DATA.features
+                .filter(feature => !isCurrentScopeLegalAmazon() || isLegalAmazonUF(feature.properties.SIGLA_UF))
+                .map(feature => ({
+                    type: 'Feature',
+                    properties: {
+                        SIGLA_UF: feature.properties.SIGLA_UF,
+                        NM_UF: feature.properties.NM_UF,
+                        NM_REGIA: feature.properties.NM_REGIA,
+                        AREA_KM2: feature.properties.AREA_KM2,
+                        producao: producaoByEstado[feature.properties.SIGLA_UF] || 0
+                    },
+                    geometry: feature.geometry
+                }))
         };
     } else {
         // Fallback: Create state boundaries by merging municipalities
         const featuresByUF = {};
-        dashboardData.geojsonData.features.forEach(feature => {
+        getScopedMunicipiosGeoJSONData().features.forEach(feature => {
             const uf = feature.properties.SIGLA_UF;
             if (!featuresByUF[uf]) {
                 featuresByUF[uf] = {
@@ -1255,10 +1404,7 @@ function createEstadosLayer() {
             features: Object.values(featuresByUF)
         };
     }
-    
-    // Adjust color scale for states
-    const maxEstado = Math.max(...Object.values(producaoByEstado));
-    
+
     dashboardData.estadosLayer = L.geoJSON(estadosData, {
         style: (feature) => {
             const producao = feature.properties.producao || 0;
@@ -1293,6 +1439,8 @@ function createEstadosLayer() {
             });
         }
     }).addTo(dashboardData.map);
+
+    fitMapToLayer(dashboardData.estadosLayer);
 }
 
 function updateInfoPanelEstado(props) {
@@ -1358,7 +1506,7 @@ function createBubblesLayer(producaoByMunicipio) {
     // Calculate centroids from municipalities with production
     const markers = [];
     
-    dashboardData.geojsonData.features.forEach(feature => {
+    getScopedMunicipiosGeoJSONData().features.forEach(feature => {
         const codMun = feature.properties.CD_MUN;
         const producao = producaoByMunicipio[codMun] || 0;
         
@@ -1377,7 +1525,7 @@ function createBubblesLayer(producaoByMunicipio) {
     });
     
     // Create circle markers
-    dashboardData.bubblesLayer = L.layerGroup();
+    dashboardData.bubblesLayer = L.featureGroup();
     
     // Calculate max for scaling
     const maxProd = Math.max(...markers.map(m => m.producao));
@@ -1418,6 +1566,7 @@ function createBubblesLayer(producaoByMunicipio) {
     });
     
     dashboardData.bubblesLayer.addTo(dashboardData.map);
+    fitMapToLayer(dashboardData.bubblesLayer);
 }
 
 function getCentroid(geometry) {
@@ -1449,7 +1598,7 @@ function createHeatmapLayer(producaoByMunicipio) {
     // Create heat points based on production
     const heatPoints = [];
     
-    dashboardData.geojsonData.features.forEach(feature => {
+    getScopedMunicipiosGeoJSONData().features.forEach(feature => {
         const codMun = feature.properties.CD_MUN;
         const producao = producaoByMunicipio[codMun] || 0;
         
@@ -1469,7 +1618,7 @@ function createHeatmapLayer(producaoByMunicipio) {
     });
     
     // Since Leaflet.heat requires a plugin, we'll simulate with circles
-    dashboardData.heatmapLayer = L.layerGroup();
+    dashboardData.heatmapLayer = L.featureGroup();
     
     const maxIntensity = Math.max(...heatPoints.map(p => p.intensity));
     
@@ -1512,6 +1661,7 @@ function createHeatmapLayer(producaoByMunicipio) {
     });
     
     dashboardData.heatmapLayer.addTo(dashboardData.map);
+    fitMapToLayer(dashboardData.heatmapLayer);
 }
 
 function updateEstadosView() {

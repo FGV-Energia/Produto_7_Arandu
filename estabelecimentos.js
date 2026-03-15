@@ -33,6 +33,9 @@ const UF_NAMES = {
     'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
 };
 
+const LEGAL_AMAZON_FILTER_VALUE = 'amazonia-legal';
+const LEGAL_AMAZON_UFS = ['AC', 'AP', 'AM', 'MA', 'MT', 'PA', 'RO', 'RR', 'TO'];
+
 const SITUACAO_NAMES = {
     '01': 'Nula',
     '02': 'Ativa',
@@ -205,6 +208,10 @@ function parseCSVLine(line) {
     return result;
 }
 
+function isLegalAmazonUF(uf) {
+    return LEGAL_AMAZON_UFS.includes(uf);
+}
+
 // Process Data
 function processData() {
     const data = dashboardData.filteredData;
@@ -212,7 +219,10 @@ function processData() {
     // Populate UF filter
     const ufs = [...new Set(data.map(d => d.uf))].filter(Boolean).sort();
     const ufSelect = document.getElementById('filterUF');
-    ufSelect.innerHTML = '<option value="">Todos os Estados</option>';
+    ufSelect.innerHTML = `
+        <option value="">Todos os Estados</option>
+        <option value="${LEGAL_AMAZON_FILTER_VALUE}">Amazônia Legal</option>
+    `;
     ufs.forEach(uf => {
         const option = document.createElement('option');
         option.value = uf;
@@ -626,7 +636,10 @@ function applyFilters() {
     const cnae = document.getElementById('filterCNAE').value;
     
     dashboardData.filteredData = dashboardData.raw.filter(item => {
-        if (uf && item.uf !== uf) return false;
+        if (uf) {
+            if (uf === LEGAL_AMAZON_FILTER_VALUE && !isLegalAmazonUF(item.uf)) return false;
+            if (uf !== LEGAL_AMAZON_FILTER_VALUE && item.uf !== uf) return false;
+        }
         if (cnae && item.cnaeFiscalPrincipal !== cnae) return false;
         return true;
     });

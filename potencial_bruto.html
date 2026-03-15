@@ -55,7 +55,18 @@
         <!-- Hero Section -->
         <section class="hero hero-potencial">
             <div class="hero-content">
-                <h1>Potencial Bruto de Biometano</h1>
+                <div class="hero-title-row">
+                    <h1 id="heroTitle">Potencial Bruto de Biometano</h1>
+                    <button id="scopeToggleButton" class="scope-toggle-button" type="button" aria-pressed="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M17 3l4 4-4 4"/>
+                            <path d="M3 7h18"/>
+                            <path d="M7 21l-4-4 4-4"/>
+                            <path d="M21 17H3"/>
+                        </svg>
+                        <span id="scopeToggleLabel">Amazônia Legal</span>
+                    </button>
+                </div>
                 <p class="hero-subtitle">Estimativa de produção de Biometano a partir de resíduos da piscicultura brasileira</p>
                 <div class="hero-info">
                     <div class="info-box">
@@ -254,6 +265,7 @@
                     </select>
                     <select id="filterRegiao">
                         <option value="">Todas as Regiões</option>
+                        <option value="amazonia-legal">Amazônia Legal</option>
                         <option value="Norte">Norte</option>
                         <option value="Nordeste">Nordeste</option>
                         <option value="Sudeste">Sudeste</option>

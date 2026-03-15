@@ -236,11 +236,55 @@ h4 { font-size: 1.125rem; }
     color: var(--white);
     padding: 48px 24px;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.hero::before,
+.hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-repeat: repeat-x;
+}
+
+.hero::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 140'%3E%3Cg fill='%23ffffff' transform='translate(34 34) scale(0.5)'%3E%3Cpath d='M32 41c16-18 40-23 64-20 14 2 28 8 43 19l22-14-7 15 7 15-22-14c-15 11-29 17-43 19-24 3-48-2-64-20z'/%3E%3Cpath d='M150 20c8-9 20-12 31-11 7 1 14 4 21 10l10-7-3 8 3 8-10-7c-7 6-14 9-21 10-11 1-23-2-31-11z'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 600px 116px;
+    background-position: 0 20%;
+    opacity: 0.07;
+    animation: hero-fish-swim-main 42s linear infinite;
+}
+
+.hero::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 980 220'%3E%3Cg fill='%23ffffff' transform='translate(710 98) scale(0.62)'%3E%3Cpath d='M32 41c16-18 40-23 64-20 14 2 28 8 43 19l22-14-7 15 7 15-22-14c-15 11-29 17-43 19-24 3-48-2-64-20z'/%3E%3Cpath d='M150 20c8-9 20-12 31-11 7 1 14 4 21 10l10-7-3 8 3 8-10-7c-7 6-14 9-21 10-11 1-23-2-31-11z'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 820px 184px;
+    background-position: 140px 76%;
+    opacity: 0.035;
+    animation: hero-fish-swim-secondary 58s linear infinite;
 }
 
 .hero-content {
-    max-width: 800px;
+    max-width: 1240px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: nowrap;
+}
+
+.hero-title-row h1 {
+    margin-bottom: 0;
+    flex: 0 1 auto;
 }
 
 .hero h1 {
@@ -249,10 +293,63 @@ h4 { font-size: 1.125rem; }
     font-weight: 700;
 }
 
+.scope-toggle-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 9px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.92);
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    backdrop-filter: blur(6px);
+}
+
+.scope-toggle-button svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.scope-toggle-button:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.scope-toggle-button.active {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.38);
+}
+
 .hero-subtitle {
     font-size: 1.125rem;
+    margin-top: 12px;
     opacity: 0.9;
     font-weight: 300;
+}
+
+@keyframes hero-fish-swim-main {
+    from {
+        background-position: 0 20%;
+    }
+    to {
+        background-position: -600px 20%;
+    }
+}
+
+@keyframes hero-fish-swim-secondary {
+    from {
+        background-position: 140px 76%;
+    }
+    to {
+        background-position: -680px 76%;
+    }
 }
 
 /* KPI Section */
@@ -1048,6 +1145,26 @@ h4 { font-size: 1.125rem; }
     .hero {
         padding: 32px 16px;
     }
+
+    .hero-title-row {
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .hero::before {
+        background-size: 560px 112px;
+        opacity: 0.065;
+    }
+
+    .hero::after {
+        background-size: 760px 160px;
+        opacity: 0.04;
+    }
+
+    .scope-toggle-button {
+        padding: 8px 12px;
+        font-size: 0.875rem;
+    }
     
     .hero-subtitle {
         font-size: 1rem;
@@ -1189,6 +1306,15 @@ h4 { font-size: 1.125rem; }
     .logo-subtitle {
         display: none;
     }
+
+    .hero-title-row {
+        flex-direction: column;
+    }
+
+    .hero::before,
+    .hero::after {
+        animation-duration: 36s;
+    }
     
     .kpi-icon {
         width: 48px;
@@ -1208,6 +1334,13 @@ h4 { font-size: 1.125rem; }
     .btn-pagination {
         padding: 8px 16px;
         font-size: 0.8125rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero::before,
+    .hero::after {
+        animation: none;
     }
 }
 
