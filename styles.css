@@ -51,6 +51,9 @@
     --chart-8: #9b59b6;
     --chart-9: #34495e;
     --chart-10: #95a5a6;
+    --panel-surface: rgba(255, 255, 255, 0.96);
+    --panel-border: rgba(0, 64, 128, 0.08);
+    --panel-highlight: rgba(15, 94, 199, 0.12);
     
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -88,7 +91,9 @@ html {
 
 body {
     font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: var(--gray-100);
+    background:
+        radial-gradient(circle at top right, rgba(15, 94, 199, 0.08), transparent 28%),
+        linear-gradient(180deg, #f6f8fb 0%, #eef3f8 100%);
     color: var(--text-primary);
     line-height: 1.6;
     min-height: 100vh;
@@ -456,6 +461,8 @@ h4 { font-size: 1.125rem; }
 .section-header p {
     color: var(--text-muted);
     font-size: 1rem;
+    max-width: 62ch;
+    margin: 0 auto;
 }
 
 /* Charts Section */
@@ -473,16 +480,30 @@ h4 { font-size: 1.125rem; }
 }
 
 .chart-card {
-    background: var(--white);
+    background:
+        radial-gradient(circle at top right, var(--panel-highlight), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
     border-radius: var(--radius-lg);
     padding: 24px;
     box-shadow: var(--shadow);
     grid-column: span 6;
     transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--panel-border);
+}
+
+.chart-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-dark), var(--secondary-light), var(--accent-green));
 }
 
 .chart-card:hover {
     box-shadow: var(--shadow-lg);
+    transform: translateY(-3px);
 }
 
 .chart-card.large {
@@ -501,6 +522,7 @@ h4 { font-size: 1.125rem; }
 .chart-header h3 {
     color: var(--primary-dark);
     font-size: 1.125rem;
+    letter-spacing: 0.01em;
 }
 
 .chart-actions {
@@ -548,11 +570,14 @@ h4 { font-size: 1.125rem; }
 }
 
 .map-container-wrapper {
-    background: var(--white);
+    background:
+        radial-gradient(circle at top right, rgba(15, 94, 199, 0.08), transparent 28%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.97));
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
     position: relative;
+    border: 1px solid var(--panel-border);
 }
 
 .map-controls {
@@ -874,10 +899,11 @@ h4 { font-size: 1.125rem; }
 }
 
 .table-wrapper {
-    background: var(--white);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.97));
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
     overflow: hidden;
+    border: 1px solid var(--panel-border);
 }
 
 .data-table {
@@ -966,6 +992,17 @@ h4 { font-size: 1.125rem; }
     background: var(--gray-300);
     color: var(--gray-500);
     cursor: not-allowed;
+}
+
+.pagination-number {
+    min-width: 44px;
+    padding-inline: 0;
+}
+
+.pagination .btn-pagination.active,
+.pagination-number.active {
+    background: var(--primary-dark);
+    color: var(--white);
 }
 
 .page-info {
@@ -1352,7 +1389,7 @@ h4 { font-size: 1.125rem; }
 }
 
 .filters-container {
-    background: var(--white);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.97));
     border-radius: var(--radius-lg);
     padding: 24px 32px;
     box-shadow: var(--shadow);
@@ -1361,6 +1398,7 @@ h4 { font-size: 1.125rem; }
     gap: 20px;
     align-items: flex-end;
     justify-content: center;
+    border: 1px solid var(--panel-border);
 }
 
 .filter-group {

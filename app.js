@@ -3,30 +3,20 @@
  * Produção Piscicultura Brasil 2024
  */
 
-// Chart.js Global Configuration
-Chart.defaults.font.family = "'Source Sans 3', sans-serif";
-Chart.defaults.color = '#4a5568';
-Chart.defaults.plugins.tooltip.backgroundColor = '#003366';
-Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
-Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
-Chart.defaults.plugins.tooltip.padding = 12;
-Chart.defaults.plugins.tooltip.cornerRadius = 8;
+window.AranduTheme?.applyChartDefaults();
 
-// Color Palette
-const COLORS = {
-    primary: ['#003366', '#0066cc', '#3498db', '#1abc9c', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6', '#34495e', '#95a5a6'],
-    gradient: {
-        blue: ['rgba(0, 51, 102, 0.8)', 'rgba(0, 102, 204, 0.6)'],
-        green: ['rgba(39, 174, 96, 0.8)', 'rgba(46, 204, 113, 0.6)']
-    },
-    regions: {
-        'Norte': '#2ecc71',
-        'Nordeste': '#e74c3c',
-        'Sudeste': '#3498db',
-        'Sul': '#9b59b6',
-        'Centro-Oeste': '#f39c12'
-    }
-};
+const COLORS = window.AranduTheme
+    ? window.AranduTheme.COLORS
+    : {
+        primary: ['#003366', '#0f5ec7', '#2f80ed', '#0ea5a8', '#1fbf75', '#f59e0b', '#ef4444', '#8b5cf6', '#334155', '#94a3b8'],
+        regions: {
+            'Norte': '#1fbf75',
+            'Nordeste': '#ef4444',
+            'Sudeste': '#2f80ed',
+            'Sul': '#8b5cf6',
+            'Centro-Oeste': '#f59e0b'
+        }
+    };
 
 // UF to Region mapping
 const UF_TO_REGION = {
@@ -71,7 +61,9 @@ let dashboardData = {
     estadosLayer: null,
     bubblesLayer: null,
     heatmapLayer: null,
-    municipiosCentroids: {}
+    municipiosCentroids: {},
+    scopedGeojsonCache: {},
+    mapRenderer: null
 };
 
 let tableState = {
@@ -89,11 +81,16 @@ let tableState = {
 let mapState = {
     selectedEspecie: '',
     highlightedFeature: null,
-    currentView: 'municipios' // 'municipios', 'estados', 'bolhas', 'heatmap'
+    currentView: 'municipios', // 'municipios', 'estados', 'bolhas', 'heatmap'
+    breaks: []
 };
 
 let scopeState = {
     current: DASHBOARD_SCOPE.BRAZIL
+};
+
+let chartState = {
+    especiesType: 'bar'
 };
 
 // Initialize Dashboard
@@ -261,12 +258,8 @@ function destroyCharts() {
 }
 
 function refreshCharts() {
-    const activeChartType = document.querySelector('.btn-chart.active')?.dataset.chart || 'bar';
     destroyCharts();
     initCharts();
-    if (activeChartType !== 'bar') {
-        toggleChartType(activeChartType);
-    }
 }
 
 function refreshFilterOptions() {
@@ -285,13 +278,21 @@ function getFeatureUF(feature) {
 function getScopedMunicipiosGeoJSONData() {
     if (!dashboardData.geojsonData?.features) return dashboardData.geojsonData;
 
-    return {
+    const cacheKey = scopeState.current;
+    if (dashboardData.scopedGeojsonCache[cacheKey]) {
+        return dashboardData.scopedGeojsonCache[cacheKey];
+    }
+
+    const scopedData = {
         ...dashboardData.geojsonData,
         features: dashboardData.geojsonData.features.filter(feature => {
             if (!isCurrentScopeLegalAmazon()) return true;
             return isLegalAmazonUF(getFeatureUF(feature));
         })
     };
+
+    dashboardData.scopedGeojsonCache[cacheKey] = scopedData;
+    return scopedData;
 }
 
 function fitMapToLayer(layer) {
@@ -411,45 +412,68 @@ function initCharts() {
     createDistribuicaoChart();
 }
 
+function getSortedEspeciesData() {
+    return Object.entries(dashboardData.byEspecie)
+        .filter(([_, value]) => value > 0)
+        .sort((a, b) => b[1] - a[1]);
+}
+
 function createEspeciesChart() {
     const ctx = document.getElementById('chartEspecies').getContext('2d');
     
-    const sortedData = Object.entries(dashboardData.byEspecie)
-        .filter(([_, v]) => v > 0)
-        .sort((a, b) => b[1] - a[1]);
+    const sortedData = getSortedEspeciesData();
     
     const labels = sortedData.map(d => d[0].length > 25 ? d[0].substring(0, 25) + '...' : d[0]);
     const values = sortedData.map(d => d[1]);
     
+    const isPie = chartState.especiesType === 'pie';
+    const palette = window.AranduTheme?.getPalette(Math.max(values.length, 1), 0.9) || COLORS.primary.slice(0, values.length);
+    const barGradient = window.AranduTheme?.createVerticalGradient([
+        window.AranduTheme.withAlpha(COLORS.primary[1], 0.95),
+        window.AranduTheme.withAlpha(COLORS.primary[0], 0.72)
+    ]) || COLORS.primary[0];
+
+    if (dashboardData.charts.especies) {
+        dashboardData.charts.especies.destroy();
+    }
+
     dashboardData.charts.especies = new Chart(ctx, {
-        type: 'bar',
+        type: isPie ? 'doughnut' : 'bar',
         data: {
             labels: labels,
             datasets: [{
                 label: 'Produção (ton)',
                 data: values,
-                backgroundColor: COLORS.primary.slice(0, values.length),
-                borderRadius: 6,
-                borderSkipped: false
+                backgroundColor: isPie ? palette : barGradient,
+                hoverBackgroundColor: isPie
+                    ? window.AranduTheme?.getPalette(Math.max(values.length, 1), 1) || palette
+                    : undefined,
+                borderColor: isPie ? '#ffffff' : COLORS.primary[0],
+                borderWidth: isPie ? 2 : 0,
+                borderRadius: isPie ? 0 : 12,
+                borderSkipped: false,
+                maxBarThickness: isPie ? undefined : 46
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: isPie,
+                    position: 'right'
+                },
                 tooltip: {
                     callbacks: {
                         label: (ctx) => `Produção: ${formatDecimal(ctx.raw)} ton`
                     }
                 }
             },
-            scales: {
+            cutout: isPie ? '62%' : undefined,
+            scales: isPie ? undefined : {
                 x: {
                     grid: { display: false },
                     ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
+                        maxRotation: 35,
+                        minRotation: 35
                     }
                 },
                 y: {
@@ -467,21 +491,20 @@ function createEspeciesChart() {
 function createTop5Chart() {
     const ctx = document.getElementById('chartTop5').getContext('2d');
     
-    const top5 = Object.entries(dashboardData.byEspecie)
-        .filter(([_, v]) => v > 0)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
+    const top5 = getSortedEspeciesData().slice(0, 5);
     
     const labels = top5.map(d => d[0].split(',')[0]);
     const values = top5.map(d => d[1]);
     
+    const palette = window.AranduTheme?.getPalette(5, 0.9) || COLORS.primary.slice(0, 5);
+
     dashboardData.charts.top5 = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: labels,
             datasets: [{
                 data: values,
-                backgroundColor: COLORS.primary.slice(0, 5),
+                backgroundColor: palette,
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
@@ -516,9 +539,7 @@ function createParticipacaoChart() {
     const ctx = document.getElementById('chartParticipacao').getContext('2d');
     
     const total = Object.values(dashboardData.byEspecie).reduce((a, b) => a + b, 0);
-    const sorted = Object.entries(dashboardData.byEspecie)
-        .filter(([_, v]) => v > 0)
-        .sort((a, b) => b[1] - a[1]);
+    const sorted = getSortedEspeciesData();
     
     const top5 = sorted.slice(0, 5);
     const outros = sorted.slice(5).reduce((sum, [_, v]) => sum + v, 0);
@@ -533,8 +554,8 @@ function createParticipacaoChart() {
         data: {
             labels: data.map(d => d.name),
             datasets: [{
-                data: data.map(d => ((d.value / total) * 100).toFixed(1)),
-                backgroundColor: [...COLORS.primary.slice(0, 5), '#95a5a6'],
+                data: data.map(d => total > 0 ? ((d.value / total) * 100).toFixed(1) : 0),
+                backgroundColor: [...(window.AranduTheme?.getPalette(5, 0.88) || COLORS.primary.slice(0, 5)), '#94a3b8'],
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
@@ -671,7 +692,7 @@ function createDistribuicaoChart() {
         data: {
             labels: regioes,
             datasets: [{
-                data: regioes.map(r => ((dashboardData.byRegiao[r] || 0) / total * 100).toFixed(1)),
+                data: regioes.map(r => total > 0 ? ((dashboardData.byRegiao[r] || 0) / total * 100).toFixed(1) : 0),
                 backgroundColor: regioes.map(r => COLORS.regions[r] + 'cc'),
                 borderColor: regioes.map(r => COLORS.regions[r]),
                 borderWidth: 2
@@ -955,20 +976,9 @@ function initEventListeners() {
 }
 
 function toggleChartType(type) {
-    const chart = dashboardData.charts.especies;
-    if (!chart) return;
-    
-    if (type === 'bar') {
-        chart.config.type = 'bar';
-        chart.options.indexAxis = 'x';
-        chart.options.plugins.legend.display = false;
-    } else if (type === 'pie') {
-        chart.config.type = 'doughnut';
-        chart.options.plugins.legend.display = true;
-        chart.options.plugins.legend.position = 'right';
-    }
-    
-    chart.update();
+    if (!['bar', 'pie'].includes(type)) return;
+    chartState.especiesType = type;
+    createEspeciesChart();
 }
 
 // =====================
@@ -990,14 +1000,71 @@ const MAP_COLORS = [
 
 const MAP_BREAKS = [0, 1, 10, 50, 100, 500, 1000, 5000, 10000];
 
+function getActiveMapBreaks() {
+    return Array.isArray(mapState.breaks) && mapState.breaks.length >= 2
+        ? mapState.breaks
+        : MAP_BREAKS;
+}
+
+function buildDynamicMapBreaks(values) {
+    const positiveValues = values
+        .map(value => Number(value) || 0)
+        .filter(value => value > 0)
+        .sort((a, b) => a - b);
+
+    if (!positiveValues.length) {
+        return [...MAP_BREAKS];
+    }
+
+    const classCount = MAP_COLORS.length - 1;
+    const min = positiveValues[0];
+    const max = positiveValues[positiveValues.length - 1];
+
+    if (min === max) {
+        return [0, ...Array.from({ length: classCount }, (_, index) => min * (index + 1))];
+    }
+
+    const safeMin = Math.max(min, 0.0001);
+    const minLog = Math.log10(safeMin);
+    const maxLog = Math.log10(max);
+    const breaks = [0];
+
+    for (let index = 0; index < classCount; index++) {
+        const ratio = classCount === 1 ? 0 : index / (classCount - 1);
+        breaks.push(10 ** (minLog + ((maxLog - minLog) * ratio)));
+    }
+
+    return breaks.map((value, index) => {
+        if (index === 0) return 0;
+        return Number(value.toPrecision(2));
+    });
+}
+
+function setMapScale(values) {
+    mapState.breaks = buildDynamicMapBreaks(values);
+}
+
+function formatLegendValue(value) {
+    if (value >= 1000) {
+        return new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+    }
+
+    return new Intl.NumberFormat('pt-BR', {
+        maximumFractionDigits: value >= 100 ? 0 : value >= 10 ? 1 : 2
+    }).format(value);
+}
+
 function getColorForValue(value) {
+    const breaks = getActiveMapBreaks();
     if (value <= 0) return MAP_COLORS[0];
-    for (let i = MAP_BREAKS.length - 1; i >= 0; i--) {
-        if (value >= MAP_BREAKS[i]) {
-            return MAP_COLORS[Math.min(i + 1, MAP_COLORS.length - 1)];
+
+    for (let i = breaks.length - 1; i >= 1; i--) {
+        if (value >= breaks[i]) {
+            return MAP_COLORS[Math.min(i, MAP_COLORS.length - 1)];
         }
     }
-    return MAP_COLORS[0];
+
+    return MAP_COLORS[1];
 }
 
 function initMap() {
@@ -1015,8 +1082,11 @@ function initMap() {
         zoom: 4,
         minZoom: 3,
         maxZoom: 12,
-        zoomControl: true
+        zoomControl: true,
+        preferCanvas: true
     });
+
+    dashboardData.mapRenderer = L.canvas({ padding: 0.5 });
     
     // Add tile layer (optional - can use a simple background)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
@@ -1233,40 +1303,13 @@ function populateMapFilter() {
 }
 
 function updateMapColors() {
-    const producaoByMunicipio = calculateMapData(mapState.selectedEspecie);
-    
-    // Update based on current view
-    switch (mapState.currentView) {
-        case 'municipios':
-            if (dashboardData.geojsonLayer) {
-                dashboardData.geojsonLayer.eachLayer(layer => {
-                    const codMun = layer.feature.properties.CD_MUN;
-                    const producao = producaoByMunicipio[codMun] || 0;
-                    layer.setStyle({
-                        fillColor: getColorForValue(producao),
-                        weight: 0.5,
-                        opacity: 1,
-                        color: '#666',
-                        fillOpacity: 0.8
-                    });
-                });
-            }
-            break;
-        case 'estados':
-            updateEstadosView();
-            break;
-        case 'bolhas':
-            updateBubblesView();
-            break;
-        case 'heatmap':
-            updateHeatmapView();
-            break;
-    }
+    switchMapView(mapState.currentView);
 }
 
 // Switch between map views
 function switchMapView(view) {
     mapState.currentView = view;
+    hideInfoPanel();
     
     // Update button states
     document.querySelectorAll('.btn-map-view').forEach(btn => {
@@ -1278,21 +1321,36 @@ function switchMapView(view) {
     
     // Create the selected view
     const producaoByMunicipio = calculateMapData(mapState.selectedEspecie);
+    const producaoByEstado = Object.entries(dashboardData.byEstado).reduce((accumulator, [uf]) => {
+        accumulator[uf] = 0;
+        return accumulator;
+    }, {});
+
+    dashboardData.raw.forEach(item => {
+        if (mapState.selectedEspecie === '' || item.especie === mapState.selectedEspecie) {
+            const uf = getUFFromCode(item.codMun.toString().substring(0, 2));
+            producaoByEstado[uf] = (producaoByEstado[uf] || 0) + item.producao;
+        }
+    });
     
     switch (view) {
         case 'municipios':
+            setMapScale(Object.values(producaoByMunicipio));
             createMunicipiosLayer(producaoByMunicipio);
             createMapLegend('choropleth');
             break;
         case 'estados':
-            createEstadosLayer();
+            setMapScale(Object.values(producaoByEstado));
+            createEstadosLayer(producaoByEstado);
             createMapLegend('choropleth');
             break;
         case 'bolhas':
+            setMapScale(Object.values(producaoByMunicipio));
             createBubblesLayer(producaoByMunicipio);
             createMapLegend('bubbles');
             break;
         case 'heatmap':
+            setMapScale(Object.values(producaoByMunicipio));
             createHeatmapLayer(producaoByMunicipio);
             createMapLegend('heatmap');
             break;
@@ -1334,21 +1392,7 @@ function createMunicipiosLayer(producaoByMunicipio) {
     fitMapToLayer(dashboardData.geojsonLayer);
 }
 
-function createEstadosLayer() {
-    // Aggregate data by state
-    const producaoByEstado = {};
-    
-    dashboardData.raw.forEach(item => {
-        if (mapState.selectedEspecie === '' || item.especie === mapState.selectedEspecie) {
-            const ufCode = item.codMun.toString().substring(0, 2);
-            const uf = getUFFromCode(ufCode);
-            if (!producaoByEstado[uf]) {
-                producaoByEstado[uf] = 0;
-            }
-            producaoByEstado[uf] += item.producao;
-        }
-    });
-    
+function createEstadosLayer(producaoByEstado = {}) {
     // Use the dedicated UF GeoJSON if available
     let estadosData;
     
@@ -1511,8 +1555,7 @@ function createBubblesLayer(producaoByMunicipio) {
         const producao = producaoByMunicipio[codMun] || 0;
         
         if (producao > 0) {
-            // Calculate centroid
-            const centroid = getCentroid(feature.geometry);
+            const centroid = getFeatureCentroid(feature);
             if (centroid) {
                 markers.push({
                     lat: centroid[1],
@@ -1526,6 +1569,11 @@ function createBubblesLayer(producaoByMunicipio) {
     
     // Create circle markers
     dashboardData.bubblesLayer = L.featureGroup();
+
+    if (!markers.length) {
+        dashboardData.bubblesLayer.addTo(dashboardData.map);
+        return;
+    }
     
     // Calculate max for scaling
     const maxProd = Math.max(...markers.map(m => m.producao));
@@ -1540,7 +1588,8 @@ function createBubblesLayer(producaoByMunicipio) {
             color: '#003366',
             weight: 1,
             opacity: 0.8,
-            fillOpacity: 0.6
+            fillOpacity: 0.68,
+            renderer: dashboardData.mapRenderer
         });
         
         circle.on('mouseover', (e) => {
@@ -1569,6 +1618,20 @@ function createBubblesLayer(producaoByMunicipio) {
     fitMapToLayer(dashboardData.bubblesLayer);
 }
 
+function getFeatureCentroid(feature) {
+    const codMun = feature?.properties?.CD_MUN;
+    if (codMun && dashboardData.municipiosCentroids[codMun]) {
+        return dashboardData.municipiosCentroids[codMun];
+    }
+
+    const centroid = getCentroid(feature?.geometry);
+    if (codMun && centroid) {
+        dashboardData.municipiosCentroids[codMun] = centroid;
+    }
+
+    return centroid;
+}
+
 function getCentroid(geometry) {
     try {
         let coords = [];
@@ -1576,8 +1639,8 @@ function getCentroid(geometry) {
         if (geometry.type === 'Polygon') {
             coords = geometry.coordinates[0];
         } else if (geometry.type === 'MultiPolygon') {
-            // Use first polygon
-            coords = geometry.coordinates[0][0];
+            const rings = geometry.coordinates.map(polygon => polygon[0] || []);
+            coords = rings.sort((a, b) => b.length - a.length)[0] || [];
         }
         
         if (coords.length === 0) return null;
@@ -1603,7 +1666,7 @@ function createHeatmapLayer(producaoByMunicipio) {
         const producao = producaoByMunicipio[codMun] || 0;
         
         if (producao > 0) {
-            const centroid = getCentroid(feature.geometry);
+            const centroid = getFeatureCentroid(feature);
             if (centroid) {
                 // Normalize intensity
                 heatPoints.push({
@@ -1616,13 +1679,15 @@ function createHeatmapLayer(producaoByMunicipio) {
             }
         }
     });
-    
-    // Since Leaflet.heat requires a plugin, we'll simulate with circles
+
     dashboardData.heatmapLayer = L.featureGroup();
-    
-    const maxIntensity = Math.max(...heatPoints.map(p => p.intensity));
-    
-    // Heatmap colors
+
+    if (!heatPoints.length) {
+        dashboardData.heatmapLayer.addTo(dashboardData.map);
+        return;
+    }
+
+    const maxIntensity = Math.max(...heatPoints.map(point => point.intensity));
     const heatColors = [
         'rgba(0, 0, 255, 0.2)',
         'rgba(0, 255, 255, 0.3)',
@@ -1631,59 +1696,55 @@ function createHeatmapLayer(producaoByMunicipio) {
         'rgba(255, 128, 0, 0.6)',
         'rgba(255, 0, 0, 0.7)'
     ];
-    
+
     heatPoints.forEach(point => {
-        const normalizedIntensity = point.intensity / maxIntensity;
+        const normalizedIntensity = maxIntensity > 0 ? point.intensity / maxIntensity : 0;
         const colorIndex = Math.min(Math.floor(normalizedIntensity * heatColors.length), heatColors.length - 1);
-        const radius = 10 + normalizedIntensity * 25;
-        
+        const radius = 10 + (normalizedIntensity * 25);
+
         const circle = L.circle([point.lat, point.lng], {
-            radius: radius * 1000, // Convert to meters
+            radius: radius * 1000,
             fillColor: heatColors[colorIndex].replace(/[\d.]+\)$/, '0.5)'),
             color: 'transparent',
-            fillOpacity: 0.5
+            fillOpacity: 0.5,
+            renderer: dashboardData.mapRenderer
         });
-        
+
         circle.on('mouseover', (e) => {
             updateInfoPanel(point.properties.CD_MUN, point.properties);
             showInfoPanel(e.originalEvent);
         });
-        
+
         circle.on('mousemove', (e) => {
             positionInfoPanel(e.originalEvent);
         });
-        
+
         circle.on('mouseout', () => {
             hideInfoPanel();
         });
-        
+
         dashboardData.heatmapLayer.addLayer(circle);
     });
-    
+
     dashboardData.heatmapLayer.addTo(dashboardData.map);
     fitMapToLayer(dashboardData.heatmapLayer);
 }
 
 function updateEstadosView() {
     if (dashboardData.estadosLayer) {
-        clearMapLayers();
-        createEstadosLayer();
+        switchMapView('estados');
     }
 }
 
 function updateBubblesView() {
     if (dashboardData.bubblesLayer) {
-        clearMapLayers();
-        const producaoByMunicipio = calculateMapData(mapState.selectedEspecie);
-        createBubblesLayer(producaoByMunicipio);
+        switchMapView('bolhas');
     }
 }
 
 function updateHeatmapView() {
     if (dashboardData.heatmapLayer) {
-        clearMapLayers();
-        const producaoByMunicipio = calculateMapData(mapState.selectedEspecie);
-        createHeatmapLayer(producaoByMunicipio);
+        switchMapView('heatmap');
     }
 }
 
@@ -1694,7 +1755,14 @@ function createMapLegend(type = 'choropleth') {
     legendContainer.innerHTML = '';
     
     if (type === 'choropleth') {
-        const labels = ['0', '1-10', '10-50', '50-100', '100-500', '500-1k', '1k-5k', '5k-10k', '>10k'];
+        const breaks = getActiveMapBreaks();
+        const labels = ['0'];
+
+        for (let index = 1; index < breaks.length; index++) {
+            const start = breaks[index];
+            const next = breaks[index + 1];
+            labels.push(next ? `${formatLegendValue(start)} - ${formatLegendValue(next)}` : `>= ${formatLegendValue(start)}`);
+        }
         
         MAP_COLORS.forEach((color, index) => {
             const item = document.createElement('div');

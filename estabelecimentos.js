@@ -3,18 +3,12 @@
  * Dados da Receita Federal - Aquicultura e Pesca
  */
 
-// Chart.js Global Configuration
-Chart.defaults.font.family = "'Source Sans 3', sans-serif";
-Chart.defaults.color = '#4a5568';
-Chart.defaults.plugins.tooltip.backgroundColor = '#003366';
-Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
-Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
-Chart.defaults.plugins.tooltip.padding = 12;
-Chart.defaults.plugins.tooltip.cornerRadius = 8;
+window.AranduTheme?.applyChartDefaults();
 
-// Color Palette
 const COLORS = {
-    primary: ['#003366', '#0066cc', '#3498db', '#1abc9c', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6', '#34495e', '#95a5a6'],
+    ...(window.AranduTheme?.COLORS || {
+        primary: ['#003366', '#0f5ec7', '#2f80ed', '#0ea5a8', '#1fbf75', '#f59e0b', '#ef4444', '#8b5cf6', '#334155', '#94a3b8']
+    }),
     situacao: {
         '02': '#2ecc71', // Ativa
         '03': '#f39c12', // Suspensa
@@ -82,18 +76,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Load CNAE and Municipio dictionaries
 async function loadDictionaries() {
     // Load CNAE with proper encoding (Windows-1252/Latin-1)
-    const cnaeResponse = await fetch('Estabelecimentos/CNAE.csv');
-    const cnaeBuffer = await cnaeResponse.arrayBuffer();
-    const cnaeDecoder = new TextDecoder('windows-1252');
-    const cnaeText = cnaeDecoder.decode(cnaeBuffer);
+    const cnaeText = await loadTextWithEncoding('Estabelecimentos/CNAE.csv');
     parseCNAE(cnaeText);
     
     // Load Municipios
-    const municipioResponse = await fetch('Estabelecimentos/Municipios.csv');
-    const municipioBuffer = await municipioResponse.arrayBuffer();
-    const municipioDecoder = new TextDecoder('windows-1252');
-    const municipioText = municipioDecoder.decode(municipioBuffer);
+    const municipioText = await loadTextWithEncoding('Estabelecimentos/Municipios.csv');
     parseMunicipios(municipioText);
+}
+
+async function loadTextWithEncoding(path, encoding = 'windows-1252') {
+    const response = await fetch(path);
+    if (!response.ok) {
+        throw new Error(`Falha ao carregar ${path}`);
+    }
+
+    const buffer = await response.arrayBuffer();
+    return new TextDecoder(encoding).decode(buffer);
 }
 
 function parseCNAE(csvText) {
@@ -123,23 +121,18 @@ async function loadEstabelecimentos() {
         files.push(`Estabelecimentos/estabelecimentos_filtrados_${i}_principal.csv`);
     }
     
-    const allData = [];
-    
-    for (const file of files) {
+    const datasets = await Promise.all(files.map(async (file) => {
         try {
-            const response = await fetch(file);
-            if (response.ok) {
-                const text = await response.text();
-                const records = parseCSV(text);
-                allData.push(...records);
-            }
+            const text = await loadTextWithEncoding(file);
+            return parseCSV(text);
         } catch (error) {
             console.warn(`Could not load ${file}:`, error);
+            return [];
         }
-    }
-    
-    dashboardData.raw = allData;
-    dashboardData.filteredData = [...allData];
+    }));
+
+    dashboardData.raw = datasets.flat();
+    dashboardData.filteredData = [...dashboardData.raw];
 }
 
 function parseCSV(csvText) {
@@ -318,16 +311,17 @@ function createChartMunicipios() {
             datasets: [{
                 label: 'Estabelecimentos',
                 data: values,
-                backgroundColor: COLORS.primary[0],
+                backgroundColor: window.AranduTheme?.createHorizontalGradient([
+                    window.AranduTheme.withAlpha(COLORS.primary[2], 0.92),
+                    window.AranduTheme.withAlpha(COLORS.primary[0], 0.72)
+                ]) || COLORS.primary[0],
                 borderColor: COLORS.primary[0],
-                borderWidth: 1,
-                borderRadius: 4
+                borderWidth: 0,
+                borderRadius: 10
             }]
         },
         options: {
             indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 datalabels: { display: false }
@@ -378,15 +372,13 @@ function createChartCNAE() {
             datasets: [{
                 label: 'Estabelecimentos',
                 data: values,
-                backgroundColor: COLORS.primary.slice(0, sorted.length),
-                borderWidth: 1,
-                borderRadius: 4
+                backgroundColor: window.AranduTheme?.getPalette(labels.length, 0.9) || COLORS.primary.slice(0, sorted.length),
+                borderWidth: 0,
+                borderRadius: 10
             }]
         },
         options: {
             indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 datalabels: { display: false }
@@ -442,16 +434,17 @@ function createChartTemporal(cnaeFilter = '') {
                 label: 'Novos Estabelecimentos',
                 data: values,
                 borderColor: COLORS.primary[1],
-                backgroundColor: 'rgba(0, 102, 204, 0.1)',
+                backgroundColor: window.AranduTheme?.createVerticalGradient([
+                    window.AranduTheme.withAlpha(COLORS.primary[2], 0.32),
+                    window.AranduTheme.withAlpha(COLORS.primary[1], 0.06)
+                ]) || 'rgba(0, 102, 204, 0.1)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 3,
+                tension: 0.34,
+                pointRadius: 4,
                 pointBackgroundColor: COLORS.primary[1]
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 datalabels: { display: false }
@@ -515,29 +508,40 @@ function renderTable() {
     const tbody = document.getElementById('tabelaBody');
     tbody.innerHTML = '';
     
-    paginated.forEach(item => {
-        const tr = document.createElement('tr');
-        
-        const cnpj = `${item.cnpjBasico}/${item.cnpjOrdem}-${item.cnpjDv}`;
-        const cnaeDescricao = dashboardData.cnaeDict[item.cnaeFiscalPrincipal] || item.cnaeFiscalPrincipal;
-        const municipioName = dashboardData.municipioDict[item.municipio] || item.municipio;
-        const dataInicio = formatDate(item.dataInicioAtividade);
-        
-        tr.innerHTML = `
-            <td>${cnpj}</td>
-            <td>${item.nomeFantasia || '-'}</td>
-            <td title="${cnaeDescricao}">${item.cnaeFiscalPrincipal}</td>
-            <td>${municipioName}</td>
-            <td>${item.uf}</td>
-            <td>${dataInicio}</td>
+    if (!paginated.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">
+                    Nenhum estabelecimento encontrado com os filtros atuais
+                </td>
+            </tr>
         `;
-        
-        tbody.appendChild(tr);
-    });
+    } else {
+        paginated.forEach(item => {
+            const tr = document.createElement('tr');
+            
+            const cnpj = `${item.cnpjBasico}/${item.cnpjOrdem}-${item.cnpjDv}`;
+            const cnaeDescricao = dashboardData.cnaeDict[item.cnaeFiscalPrincipal] || item.cnaeFiscalPrincipal;
+            const municipioName = dashboardData.municipioDict[item.municipio] || item.municipio;
+            const dataInicio = formatDate(item.dataInicioAtividade);
+            
+            tr.innerHTML = `
+                <td>${cnpj}</td>
+                <td>${item.nomeFantasia || '-'}</td>
+                <td title="${cnaeDescricao}">${item.cnaeFiscalPrincipal}</td>
+                <td>${municipioName}</td>
+                <td>${item.uf}</td>
+                <td>${dataInicio}</td>
+            `;
+            
+            tbody.appendChild(tr);
+        });
+    }
     
     // Update info
-    document.getElementById('tableInfo').textContent = 
-        `Mostrando ${start + 1} a ${Math.min(end, filtered.length)} de ${filtered.length.toLocaleString('pt-BR')} registros`;
+    document.getElementById('tableInfo').textContent = filtered.length
+        ? `Mostrando ${start + 1} a ${Math.min(end, filtered.length)} de ${filtered.length.toLocaleString('pt-BR')} registros`
+        : 'Mostrando 0 de 0 registros';
     
     // Render pagination
     renderPagination(filtered.length);
@@ -553,6 +557,7 @@ function renderPagination(totalItems) {
     // Previous button
     const prevBtn = document.createElement('button');
     prevBtn.textContent = '←';
+    prevBtn.className = 'btn-pagination';
     prevBtn.disabled = tableState.currentPage === 1;
     prevBtn.addEventListener('click', () => {
         if (tableState.currentPage > 1) {
@@ -574,7 +579,7 @@ function renderPagination(totalItems) {
     for (let i = startPage; i <= endPage; i++) {
         const btn = document.createElement('button');
         btn.textContent = i;
-        btn.classList.toggle('active', i === tableState.currentPage);
+        btn.className = `btn-pagination pagination-number${i === tableState.currentPage ? ' active' : ''}`;
         btn.addEventListener('click', () => {
             tableState.currentPage = i;
             renderTable();
@@ -585,6 +590,7 @@ function renderPagination(totalItems) {
     // Next button
     const nextBtn = document.createElement('button');
     nextBtn.textContent = '→';
+    nextBtn.className = 'btn-pagination';
     nextBtn.disabled = tableState.currentPage === totalPages;
     nextBtn.addEventListener('click', () => {
         if (tableState.currentPage < totalPages) {

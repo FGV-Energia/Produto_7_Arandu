@@ -3,30 +3,20 @@
  * Dados de Mapa de Bordo
  */
 
-// Chart.js Global Configuration
-Chart.defaults.font.family = "'Source Sans 3', sans-serif";
-Chart.defaults.color = '#4a5568';
-Chart.defaults.plugins.tooltip.backgroundColor = '#003366';
-Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
-Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
-Chart.defaults.plugins.tooltip.padding = 12;
-Chart.defaults.plugins.tooltip.cornerRadius = 8;
+window.AranduTheme?.applyChartDefaults();
 
-// Color Palette
-const COLORS = {
-    primary: ['#003366', '#0066cc', '#3498db', '#1abc9c', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6', '#34495e', '#95a5a6'],
-    gradient: {
-        blue: ['rgba(0, 51, 102, 0.8)', 'rgba(0, 102, 204, 0.6)'],
-        green: ['rgba(39, 174, 96, 0.8)', 'rgba(46, 204, 113, 0.6)']
-    },
-    regions: {
-        'Norte': '#2ecc71',
-        'Nordeste': '#e74c3c',
-        'Sudeste': '#3498db',
-        'Sul': '#9b59b6',
-        'Centro-Oeste': '#f39c12'
-    }
-};
+const COLORS = window.AranduTheme
+    ? window.AranduTheme.COLORS
+    : {
+        primary: ['#003366', '#0f5ec7', '#2f80ed', '#0ea5a8', '#1fbf75', '#f59e0b', '#ef4444', '#8b5cf6', '#334155', '#94a3b8'],
+        regions: {
+            'Norte': '#1fbf75',
+            'Nordeste': '#ef4444',
+            'Sudeste': '#2f80ed',
+            'Sul': '#8b5cf6',
+            'Centro-Oeste': '#f59e0b'
+        }
+    };
 
 // UF to Region mapping
 const UF_TO_REGION = {
@@ -524,15 +514,17 @@ function createChartEspecies() {
             datasets: [{
                 label: 'Produção (ton)',
                 data: values,
-                backgroundColor: COLORS.primary[0],
+                backgroundColor: window.AranduTheme?.createVerticalGradient([
+                    window.AranduTheme.withAlpha(COLORS.primary[2], 0.92),
+                    window.AranduTheme.withAlpha(COLORS.primary[0], 0.72)
+                ]) || COLORS.primary[0],
                 borderColor: COLORS.primary[0],
-                borderWidth: 1,
-                borderRadius: 4
+                borderWidth: 0,
+                borderRadius: 10,
+                maxBarThickness: 42
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 datalabels: { display: false }
@@ -579,9 +571,9 @@ function createChartTop10() {
             datasets: [{
                 label: 'Produção (ton)',
                 data: values,
-                backgroundColor: COLORS.primary.slice(0, 10),
-                borderWidth: 1,
-                borderRadius: 4
+                backgroundColor: window.AranduTheme?.getPalette(labels.length, 0.9) || COLORS.primary.slice(0, 10),
+                borderWidth: 0,
+                borderRadius: 10
             }]
         },
         options: {
@@ -623,7 +615,7 @@ function createChartArtePesca() {
             labels: labels,
             datasets: [{
                 data: values,
-                backgroundColor: COLORS.primary.slice(0, sorted.length),
+                backgroundColor: window.AranduTheme?.getPalette(labels.length, 0.88) || COLORS.primary.slice(0, sorted.length),
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
@@ -711,9 +703,12 @@ function createChartAnual() {
                 label: 'Produção (ton)',
                 data: values,
                 borderColor: COLORS.primary[1],
-                backgroundColor: 'rgba(0, 102, 204, 0.1)',
+                backgroundColor: window.AranduTheme?.createVerticalGradient([
+                    window.AranduTheme.withAlpha(COLORS.primary[2], 0.32),
+                    window.AranduTheme.withAlpha(COLORS.primary[1], 0.05)
+                ]) || 'rgba(0, 102, 204, 0.1)',
                 fill: true,
-                tension: 0.4,
+                tension: 0.34,
                 pointRadius: 5,
                 pointBackgroundColor: COLORS.primary[1]
             }]
@@ -783,7 +778,9 @@ function initMap() {
     }
     
     // Initialize Leaflet map
-    dashboardData.map = L.map('mapContainer').setView([-14.235, -51.925], 4);
+    dashboardData.map = L.map('mapContainer', {
+        preferCanvas: true
+    }).setView([-14.235, -51.925], 4);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'

@@ -12,30 +12,20 @@ const FATOR_RESIDUOS = 0.488;       // 48,8% de resíduos
 const FATOR_BIOGAS = 0.1224;        // 0,1224 Nm³/kg de resíduo
 const FATOR_BIOGAS_TOTAL = FATOR_RESIDUOS * FATOR_BIOGAS * 1000; // Por tonelada de peixe -> Nm³
 
-// Chart.js Global Configuration
-Chart.defaults.font.family = "'Source Sans 3', sans-serif";
-Chart.defaults.color = '#4a5568';
-Chart.defaults.plugins.tooltip.backgroundColor = '#003366';
-Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
-Chart.defaults.plugins.tooltip.bodyFont = { size: 13 };
-Chart.defaults.plugins.tooltip.padding = 12;
-Chart.defaults.plugins.tooltip.cornerRadius = 8;
+window.AranduTheme?.applyChartDefaults();
 
-// Color Palette
-const COLORS = {
-    primary: ['#003366', '#0066cc', '#3498db', '#1abc9c', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6', '#34495e', '#95a5a6'],
-    gradient: {
-        blue: ['rgba(0, 51, 102, 0.8)', 'rgba(0, 102, 204, 0.6)'],
-        green: ['rgba(39, 174, 96, 0.8)', 'rgba(46, 204, 113, 0.6)']
-    },
-    regions: {
-        'Norte': '#2ecc71',
-        'Nordeste': '#e74c3c',
-        'Sudeste': '#3498db',
-        'Sul': '#9b59b6',
-        'Centro-Oeste': '#f39c12'
-    }
-};
+const COLORS = window.AranduTheme
+    ? window.AranduTheme.COLORS
+    : {
+        primary: ['#003366', '#0f5ec7', '#2f80ed', '#0ea5a8', '#1fbf75', '#f59e0b', '#ef4444', '#8b5cf6', '#334155', '#94a3b8'],
+        regions: {
+            'Norte': '#1fbf75',
+            'Nordeste': '#ef4444',
+            'Sudeste': '#2f80ed',
+            'Sul': '#8b5cf6',
+            'Centro-Oeste': '#f59e0b'
+        }
+    };
 
 // UF to Region mapping
 const UF_TO_REGION = {
@@ -76,7 +66,9 @@ let dashboardData = {
     filteredData: [],
     charts: {},
     map: null,
-    geojsonLayer: null
+    geojsonLayer: null,
+    scopedGeojsonCache: {},
+    mapRenderer: null
 };
 
 let tableState = {
@@ -98,6 +90,10 @@ let mapState = {
 
 let scopeState = {
     current: DASHBOARD_SCOPE.BRAZIL
+};
+
+let chartState = {
+    especiesType: 'bar'
 };
 
 // Initialize Dashboard
@@ -300,12 +296,8 @@ function destroyCharts() {
 }
 
 function refreshCharts() {
-    const activeChartType = document.querySelector('.btn-chart.active')?.dataset.chart || 'bar';
     destroyCharts();
     initCharts();
-    if (activeChartType !== 'bar') {
-        toggleChartType(activeChartType);
-    }
 }
 
 function refreshFilterOptions() {
@@ -323,13 +315,21 @@ function getFeatureUF(feature) {
 function getScopedMunicipiosGeoJSONData() {
     if (!dashboardData.geojsonData?.features) return dashboardData.geojsonData;
 
-    return {
+    const cacheKey = scopeState.current;
+    if (dashboardData.scopedGeojsonCache[cacheKey]) {
+        return dashboardData.scopedGeojsonCache[cacheKey];
+    }
+
+    const scopedData = {
         ...dashboardData.geojsonData,
         features: dashboardData.geojsonData.features.filter(feature => {
             if (!isCurrentScopeLegalAmazon()) return true;
             return isLegalAmazonUF(getFeatureUF(feature));
         })
     };
+
+    dashboardData.scopedGeojsonCache[cacheKey] = scopedData;
+    return scopedData;
 }
 
 function fitMapToLayer(layer) {
@@ -489,45 +489,68 @@ function initCharts() {
     createDistribuicaoChart();
 }
 
+function getSortedEspeciesData() {
+    return Object.entries(dashboardData.byEspecie)
+        .filter(([_, value]) => value.biogas > 0)
+        .sort((a, b) => b[1].biogas - a[1].biogas);
+}
+
 function createEspeciesChart() {
     const ctx = document.getElementById('chartEspecies').getContext('2d');
     
-    const sortedData = Object.entries(dashboardData.byEspecie)
-        .filter(([_, v]) => v.biogas > 0)
-        .sort((a, b) => b[1].biogas - a[1].biogas);
+    const sortedData = getSortedEspeciesData();
     
     const labels = sortedData.map(d => d[0].length > 25 ? d[0].substring(0, 25) + '...' : d[0]);
     const values = sortedData.map(d => d[1].biogas);
     
+    const isPie = chartState.especiesType === 'pie';
+    const palette = window.AranduTheme?.getPalette(Math.max(values.length, 1), 0.9) || COLORS.primary.slice(0, values.length);
+    const barGradient = window.AranduTheme?.createVerticalGradient([
+        window.AranduTheme.withAlpha(COLORS.primary[4], 0.92),
+        window.AranduTheme.withAlpha(COLORS.primary[1], 0.72)
+    ]) || COLORS.primary[1];
+
+    if (dashboardData.charts.especies) {
+        dashboardData.charts.especies.destroy();
+    }
+
     dashboardData.charts.especies = new Chart(ctx, {
-        type: 'bar',
+        type: isPie ? 'doughnut' : 'bar',
         data: {
             labels: labels,
             datasets: [{
                 label: 'Potencial Biometano (Nm³)',
                 data: values,
-                backgroundColor: COLORS.primary.slice(0, values.length),
-                borderRadius: 6,
-                borderSkipped: false
+                backgroundColor: isPie ? palette : barGradient,
+                hoverBackgroundColor: isPie
+                    ? window.AranduTheme?.getPalette(Math.max(values.length, 1), 1) || palette
+                    : undefined,
+                borderColor: isPie ? '#ffffff' : COLORS.primary[1],
+                borderWidth: isPie ? 2 : 0,
+                borderRadius: isPie ? 0 : 12,
+                borderSkipped: false,
+                maxBarThickness: isPie ? undefined : 46
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: isPie,
+                    position: 'right'
+                },
                 tooltip: {
                     callbacks: {
                         label: (ctx) => `Biometano: ${formatNumberLarge(ctx.raw)} Nm³`
                     }
                 }
             },
-            scales: {
+            cutout: isPie ? '62%' : undefined,
+            scales: isPie ? undefined : {
                 x: {
                     grid: { display: false },
                     ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
+                        maxRotation: 35,
+                        minRotation: 35
                     }
                 },
                 y: {
@@ -545,21 +568,20 @@ function createEspeciesChart() {
 function createTop5Chart() {
     const ctx = document.getElementById('chartTop5').getContext('2d');
     
-    const top5 = Object.entries(dashboardData.byEspecie)
-        .filter(([_, v]) => v.biogas > 0)
-        .sort((a, b) => b[1].biogas - a[1].biogas)
-        .slice(0, 5);
+    const top5 = getSortedEspeciesData().slice(0, 5);
     
     const labels = top5.map(d => d[0].split(',')[0]);
     const values = top5.map(d => d[1].biogas);
     
+    const palette = window.AranduTheme?.getPalette(5, 0.9) || COLORS.primary.slice(0, 5);
+
     dashboardData.charts.top5 = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: labels,
             datasets: [{
                 data: values,
-                backgroundColor: COLORS.primary.slice(0, 5),
+                backgroundColor: palette,
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
@@ -751,7 +773,7 @@ function createDistribuicaoChart() {
         data: {
             labels: regioes,
             datasets: [{
-                data: regioes.map(r => (((dashboardData.byRegiao[r]?.biogas || 0) / total) * 100).toFixed(1)),
+                data: regioes.map(r => total > 0 ? (((dashboardData.byRegiao[r]?.biogas || 0) / total) * 100).toFixed(1) : 0),
                 backgroundColor: regioes.map(r => COLORS.regions[r] + 'cc'),
                 borderColor: regioes.map(r => COLORS.regions[r]),
                 borderWidth: 2
@@ -1054,20 +1076,9 @@ function initEventListeners() {
 }
 
 function toggleChartType(type) {
-    const chart = dashboardData.charts.especies;
-    if (!chart) return;
-    
-    if (type === 'bar') {
-        chart.config.type = 'bar';
-        chart.options.indexAxis = 'x';
-        chart.options.plugins.legend.display = false;
-    } else if (type === 'pie') {
-        chart.config.type = 'doughnut';
-        chart.options.plugins.legend.display = true;
-        chart.options.plugins.legend.position = 'right';
-    }
-    
-    chart.update();
+    if (!['bar', 'pie'].includes(type)) return;
+    chartState.especiesType = type;
+    createEspeciesChart();
 }
 
 // =====================
@@ -1112,8 +1123,11 @@ function initMap() {
         zoom: 4,
         minZoom: 3,
         maxZoom: 12,
-        zoomControl: true
+        zoomControl: true,
+        preferCanvas: true
     });
+
+    dashboardData.mapRenderer = L.canvas({ padding: 0.5 });
     
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
